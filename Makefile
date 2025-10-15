@@ -1,57 +1,70 @@
-# Nome do compilador
-CC = gcc
+# ============================================
+# Makefile Multiplataforma (Windows / Linux)
+# ============================================
 
-# --- Configuração dos diretórios ---
-# Diretório do executável
-BIN_DIR = bin
-# Diretório dos arquivos-fonte
-SRC_DIR = src
-# Diretório dos arquivos-objeto
-OBJ_DIR = obj
-# Diretório dos cabeçalhos das libs
-INCLUDE_DIR = -Iinclude
-# Diretório das libs
-LIB_DIR = -Llib
-
-# --- Configuração do executável e fontes ---
-# Nome do executável
-EXEC = $(BIN_DIR)/jogo
-# Encontra todos os arquivos .c em SRC_DIR e os armazena na variável
-SOURCES = $(wildcard $(SRC_DIR)/*.c)
-# Gera o nome dos arquivos-objeto, trocando o diretório e a extensão
-OBJECTS = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SOURCES))
-
-# --- Flags de compilação e linkagem ---
-# -g: Adiciona info de debug. -Wall: Mostra todos os warnings.
-CFLAGS = $(INCLUDE_DIR) -g -Wall
-# Bibliotecas a serem linkadas
+# --- Compilador e Flags ---
+CXX = g++
+CXXFLAGS = -Iinclude -g -Wall -std=c++17
+LDFLAGS = -Llib
 LIBS = -lfreeglut -lglew32 -lopengl32 -lglu32
 
-# --- Cláusulas ---
+# --- Diretórios ---
+SRC_DIR = src
+OBJ_DIR = obj
+BIN_DIR = bin
 
-# Cláusula principal (default)
+# --- Arquivos fonte e objeto ---
+SOURCES = $(wildcard $(SRC_DIR)/*.cpp)
+OBJECTS = $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SOURCES))
+
+# --- Detecção de sistema operacional ---
+ifeq ($(OS),Windows_NT)
+	EXEC_NAME = jogo.exe
+	SHELL := cmd.exe
+	SHELLFLAGS := /C
+	MKDIR = if not exist $(subst /,\,$(1)) mkdir $(subst /,\,$(1))
+	RM = if exist $(subst /,\,$(1)) rmdir /S /Q $(subst /,\,$(1))
+else
+	EXEC_NAME = jogo
+	MKDIR = mkdir -p $(1)
+	RM = rm -rf $(1)
+endif
+
+EXEC = $(BIN_DIR)/$(EXEC_NAME)
+
+# --- Regras principais ---
 all: $(EXEC)
 
-# Cláusula para criar o executável
+compilar: all
+
+# Cria e linka o executável
 $(EXEC): $(OBJECTS)
-	@if not exist $(@D) mkdir $(@D)
-	$(CC) $^ -o $@ $(LIB_DIR) $(LIBS)
-	@echo "Compilação concluída! Executável criado em: $(EXEC)"
+	@echo [LINK] Criando executável $@
+	$(call MKDIR,$(BIN_DIR))
+	$(CXX) $^ -o $@ $(LDFLAGS) $(LIBS)
+	@echo [OK] Compilação concluída.
 
-# Cláusula para criar os arquivos-objeto
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
-	@if not exist $(@D) mkdir $(@D)
-	$(CC) $(CFLAGS) -c $< -o $@
+# Compila cada .cpp em .o
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
+	@echo [C++] Compilando $<
+	$(call MKDIR,$(OBJ_DIR))
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Cláusula para executar
+# Executa o jogo
 executar: all
-	@echo "--- Executando o Jogo ---"
+	@echo --- Executando o jogo ---
+ifeq ($(OS),Windows_NT)
+	$(subst /,\,$(EXEC))
+else
 	./$(EXEC)
-	@echo "--- Jogo Finalizado ---"
+endif
+	@echo --- Jogo finalizado ---
 
-# Cláusula para limpar tudo
+# Limpa arquivos gerados
 limpar:
-	@echo "Limpando arquivos de compilação..."
-	rm -rf $(BIN_DIR) $(OBJ_DIR)
+	@echo Limpando arquivos...
+	$(call RM,$(OBJ_DIR))
+	$(call RM,$(BIN_DIR))
+	@echo Limpesa concluída.
 
-.PHONY: all executar limpar
+.PHONY: all compilar executar limpar

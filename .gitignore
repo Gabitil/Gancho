@@ -1,0 +1,14 @@
+# Arquivos de compilação
+/bin/
+/obj/
+*.exe
+*.o
+*.out
+
+# Arquivos do VS Code
+/.vscode/
+
+/Listas/
+
+# Arquivos de sistema
+Thumbs.db
