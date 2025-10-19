@@ -1,131 +1,122 @@
-// #include <GL/glew.h>
-// #include <GL/freeglut.h>
-// #include <stdio.h>
-
-// // --- Funções de Callback ---
-
-// void display() {
-//     // Limpa o buffer de cor
-//     glClear(GL_COLOR_BUFFER_BIT);
-
-//     // Lógica de desenho aqui...
-//     // Ex: desenharMenu(), desenharJogo(), etc.
-
-//     // Troca os buffers (desenho duplo)
-//     glutSwapBuffers();
-// }
-
-// void reshape(int width, int height) {
-//     // Configura a viewport para a janela inteira
-//     glViewport(0, 0, width, height);
-    
-//     // Mais configurações de projeção podem vir aqui
-// }
-
-// void keyboard(unsigned char key, int x, int y) {
-//     // Trata pressionamento de teclas normais
-//     // ex: if (key == 'w') { ... }
-//     printf("Tecla pressionada: %c\n", key);
-// }
-
-// // Função para ser chamada quando não há eventos
-// void idle() {
-//     // Lógica de atualização do jogo (física, animação, IA)
-//     // ...
-
-//     // Redesenha a tela
-//     glutPostRedisplay();
-// }
-
-
-// // --- Função Principal ---
-
-// int main(int argc, char** argv) {
-//     // 1. Inicializa o GLUT
-//     glutInit(&argc, argv);
-//     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA); // Habilita buffer duplo e cores RGBA
-//     glutInitWindowSize(800, 600);
-//     glutInitWindowPosition(100, 100);
-//     glutCreateWindow("Projeto de Computacao Grafica - Gancho");
-
-//     // 2. Inicializa o GLEW
-//     GLenum err = glewInit();
-//     if (GLEW_OK != err) {
-//         // Problema: glewInit falhou, algo está muito errado.
-//         fprintf(stderr, "Erro: %s\n", glewGetErrorString(err));
-//         return 1;
-//     }
-//     printf("Status: Usando GLEW %s\n", glewGetString(GLEW_VERSION));
-
-//     // 3. Registra as funções de callback
-//     glutDisplayFunc(display);
-//     glutReshapeFunc(reshape);
-//     glutKeyboardFunc(keyboard);
-//     glutIdleFunc(idle);
-//     // Outros callbacks: glutMouseFunc, glutMotionFunc, etc.
-
-//     // 4. Configurações iniciais do OpenGL (cor de fundo, etc.)
-//     glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Fundo cinza escuro
-
-//     // 5. Inicia o loop principal do GLUT
-//     glutMainLoop();
-
-//     return 0;
-// }
-
-#include <GL/glew.h>
+#include <stdio.h>
 #include <GL/freeglut.h>
-#include <iostream>
+#include "menu.h"
 
-// Função de callback para desenho
+// Constantes para facilitar a manutenção
+const int NUM_BUTTONS = 3;
+const int INITIAL_WIN_WIDTH = 800;
+const int INITIAL_WIN_HEIGHT = 600;
+
+Button buttons[NUM_BUTTONS];
+MenuOption selected = NONE;
+
+// NOVA FUNÇÃO: Recalcula a posição dos botões para centralizá-los
+void updateButtonPositions(int w, int h) {
+    float buttonW = 220.0f;
+    float buttonH = 50.0f;
+    float spacing = 20.0f; // Espaço entre os botões
+
+    // Calcula a posição X para centralizar horizontalmente
+    float startX = (w - buttonW) / 2.0f;
+
+    // Calcula a altura total do bloco de botões para centralizar verticalmente
+    float totalBlockHeight = (NUM_BUTTONS * buttonH) + ((NUM_BUTTONS - 1) * spacing);
+    float startY = (h - totalBlockHeight) / 2.0f;
+
+    for (int i = 0; i < NUM_BUTTONS; ++i) {
+        buttons[i].x = startX;
+        buttons[i].y = startY + i * (buttonH + spacing);
+        buttons[i].w = buttonW;
+        buttons[i].h = buttonH;
+    }
+}
+
 void display() {
-    // Limpa a tela com a cor de fundo definida
-    glClear(GL_COLOR_BUFFER_BIT);
+    renderMenu(buttons, NUM_BUTTONS);
+}
 
-    // Começa a desenhar um triângulo
-    glBegin(GL_TRIANGLES);
-        // Vértice 1 (inferior esquerdo) - Vermelho
-        glColor3f(1.0f, 0.0f, 0.0f);
-        glVertex2f(-0.5f, -0.5f);
+void mouseMotion(int x, int y) {
+    // A CONVERSÃO DE 'y' FOI REMOVIDA DAQUI
+    // int height = glutGet(GLUT_WINDOW_HEIGHT);
+    // y = height - y;
 
-        // Vértice 2 (inferior direito) - Verde
-        glColor3f(0.0f, 1.0f, 0.0f);
-        glVertex2f(0.5f, -0.5f);
+    for (int i = 0; i < NUM_BUTTONS; i++) {
+        buttons[i].hovered = (x >= buttons[i].x && x <= buttons[i].x + buttons[i].w &&
+                              y >= buttons[i].y && y <= buttons[i].y + buttons[i].h);
+    }
+    glutPostRedisplay(); // Redesenha a tela para mostrar a mudança de cor
+}
 
-        // Vértice 3 (superior central) - Azul
-        glColor3f(0.0f, 0.0f, 1.0f);
-        glVertex2f(0.0f, 0.5f);
-    glEnd(); // Finaliza o desenho do triângulo
+void mouseClick(int button, int state, int x, int y) {
+    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
+        selected = handleMenuInput(x, y, buttons, NUM_BUTTONS);
+        switch (selected) {
+            case START_GAME:
+                printf("Iniciar jogo\n");
+                // Aqui você colocaria a lógica para iniciar o jogo
+                break;
+            case HOW_TO_PLAY:
+                printf("Como jogar\n");
+                // Aqui você abriria a tela de instruções
+                break;
+            case EXIT_GAME:
+                printf("Saindo...\n");
+                glutLeaveMainLoop(); // Fecha o programa de forma limpa
+                break;
+            case NONE:
+                // Não faz nada se clicou fora
+                break;
+        }
+    }
+}
 
-    // Troca os buffers para exibir o que foi desenhado
-    glutSwapBuffers();
+void init() {
+    glClearColor(0.9f, 0.9f, 0.9f, 1.0f); // Fundo cinza claro
+
+    // Define apenas os dados que não mudam
+    buttons[0].label = "Iniciar Jogo";
+    buttons[0].hovered = false;
+
+    buttons[1].label = "Como Jogar";
+    buttons[1].hovered = false;
+
+    buttons[2].label = "Sair";
+    buttons[2].hovered = false;
+
+    // Chama a função para calcular a posição inicial dos botões
+    updateButtonPositions(INITIAL_WIN_WIDTH, INITIAL_WIN_HEIGHT);
+}
+
+void reshape(int w, int h) {
+    // Garante que a altura nunca seja 0
+    if (h == 0) h = 1;
+
+    glViewport(0, 0, w, h);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    // Usa as novas dimensões para configurar o sistema de coordenadas
+    gluOrtho2D(0, w, h, 0);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    // ATUALIZA A POSIÇÃO dos botões sempre que a janela for redimensionada
+    updateButtonPositions(w, h);
 }
 
 int main(int argc, char** argv) {
-    // Inicializa o GLUT
     glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
-    glutInitWindowSize(800, 600);
-    glutInitWindowPosition(100, 100);
-    glutCreateWindow("Teste OpenGL com Makefile");
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(INITIAL_WIN_WIDTH, INITIAL_WIN_HEIGHT);
+    glutInitWindowPosition(100, 100); // Posição inicial da janela
+    glutCreateWindow("Menu Responsivo - OpenGL");
 
-    // Inicializa o GLEW
-    GLenum err = glewInit();
-    if (GLEW_OK != err) {
-        // Se falhar, exibe o erro e encerra
-        std::cerr << "Erro ao inicializar GLEW: " << glewGetErrorString(err) << std::endl;
-        return 1;
-    }
+    init();
 
-    // Registra a função de display
+    glutReshapeFunc(reshape);
     glutDisplayFunc(display);
+    glutPassiveMotionFunc(mouseMotion); // Para hover sem clicar
+    glutMouseFunc(mouseClick);
 
-    // Define a cor de fundo (cinza escuro)
-    glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
-
-    // Inicia o loop principal do GLUT
-    std::cout << "Iniciando o loop principal do GLUT..." << std::endl;
     glutMainLoop();
-
     return 0;
 }
