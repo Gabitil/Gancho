@@ -16,6 +16,7 @@ struct Button {
     bool hovered;
 };
 
+void drawButton(const Button& btn);
 void renderMenu(Button buttons[], int count);
 MenuOption handleMenuInput(int x, int y, Button buttons[], int count);
 
