@@ -1,15 +1,18 @@
 #include <stdio.h>
 #include <GL/freeglut.h>
 #include "menu.h"
+#include "game.h" // <<< NOVO: Inclui a interface do jogo
 
 // Constantes para facilitar a manutenção
 const int NUM_BUTTONS = 3;
 const int INITIAL_WIN_WIDTH = 800;
 const int INITIAL_WIN_HEIGHT = 600;
 
+// MODIFICADO: Adiciona o estado de jogo
 enum GameState {
     STATE_MENU,
-    STATE_INSTRUCTIONS
+    STATE_INSTRUCTIONS,
+    STATE_GAME
 };
 
 // NOVO: Variável para guardar o estado atual
@@ -20,27 +23,6 @@ Button backButton;
 
 Button buttons[NUM_BUTTONS];
 MenuOption selected = NONE;
-
-// // NOVA FUNÇÃO: Recalcula a posição dos botões para centralizá-los
-// void updateAllButtonPositions(int w, int h) {
-//     float buttonW = 220.0f;
-//     float buttonH = 50.0f;
-//     float spacing = 20.0f; // Espaço entre os botões
-
-//     // Calcula a posição X para centralizar horizontalmente
-//     float startX = (w - buttonW) / 2.0f;
-
-//     // Calcula a altura total do bloco de botões para centralizar verticalmente
-//     float totalBlockHeight = (NUM_BUTTONS * buttonH) + ((NUM_BUTTONS - 1) * spacing);
-//     float startY = (h - totalBlockHeight) / 2.0f;
-
-//     for (int i = 0; i < NUM_BUTTONS; ++i) {
-//         buttons[i].x = startX;
-//         buttons[i].y = startY + i * (buttonH + spacing);
-//         buttons[i].w = buttonW;
-//         buttons[i].h = buttonH;
-//     }
-// }
 
 // Substitua sua função updateAllButtonPositions por esta:
 void updateAllButtonPositions(int w, int h) {
@@ -96,19 +78,30 @@ void renderInstructions() {
     glutSwapBuffers();
 }
 
+// // Substitua sua função display() por esta:
 // void display() {
-//     renderMenu(buttons, NUM_BUTTONS);
+//     // MODIFICADO: Verifica o estado atual para decidir o que renderizar
+//     switch (currentState) {
+//         case STATE_MENU:
+//             renderMenu(buttons, NUM_BUTTONS);
+//             break;
+//         case STATE_INSTRUCTIONS:
+//             renderInstructions();
+//             break;
+//     }
 // }
 
-// Substitua sua função display() por esta:
+// MODIFICADO: A função display agora chama a renderização do jogo
 void display() {
-    // MODIFICADO: Verifica o estado atual para decidir o que renderizar
     switch (currentState) {
         case STATE_MENU:
             renderMenu(buttons, NUM_BUTTONS);
             break;
         case STATE_INSTRUCTIONS:
             renderInstructions();
+            break;
+        case STATE_GAME:
+            game_display(); // <<< NOVO: Chama a função de display do jogo
             break;
     }
 }
@@ -141,28 +134,38 @@ void mouseMotion(int x, int y) {
     glutPostRedisplay();
 }
 
-// void mouseClick(int button, int state, int x, int y) {
-//     if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-//         selected = handleMenuInput(x, y, buttons, NUM_BUTTONS);
-//         switch (selected) {
-//             case START_GAME:
-//                 printf("Iniciar jogo\n");
-//                 // Aqui você colocaria a lógica para iniciar o jogo
-//                 break;
-//             case HOW_TO_PLAY:
-//                 printf("Como jogar\n");
-//                 // Aqui você abriria a tela de instruções
-//                 break;
-//             case EXIT_GAME:
-//                 printf("Saindo...\n");
-//                 glutLeaveMainLoop(); // Fecha o programa de forma limpa
-//                 break;
-//             case NONE:
-//                 // Não faz nada se clicou fora
-//                 break;
-//         }
-//     }
+// // Substitua sua função reshape() por esta:
+// void reshape(int w, int h) {
+//     if (h == 0) h = 1;
+//     glViewport(0, 0, w, h);
+//     glMatrixMode(GL_PROJECTION);
+//     glLoadIdentity();
+//     gluOrtho2D(0, w, h, 0);
+//     glMatrixMode(GL_MODELVIEW);
+//     glLoadIdentity();
+
+//     // MODIFICADO: Chama a nova função que atualiza TODOS os botões
+//     updateAllButtonPositions(w, h);
 // }
+
+void reshape(int w, int h) {
+    switch (currentState) {
+        case STATE_MENU:
+        case STATE_INSTRUCTIONS:
+            if (h == 0) h = 1;
+            glViewport(0, 0, w, h);
+            glMatrixMode(GL_PROJECTION);
+            glLoadIdentity();
+            gluOrtho2D(0, w, h, 0);
+            glMatrixMode(GL_MODELVIEW);
+            glLoadIdentity();
+            updateAllButtonPositions(w, h);
+            break;
+        case STATE_GAME:
+            game_reshape(w, h); // <<< NOVO: Chama a função de reshape do jogo
+            break;
+    }
+}
 
 // Substitua sua função mouseClick() por esta:
 void mouseClick(int button, int state, int x, int y) {
@@ -172,7 +175,10 @@ void mouseClick(int button, int state, int x, int y) {
             selected = handleMenuInput(x, y, buttons, NUM_BUTTONS);
             switch (selected) {
                 case START_GAME:
-                    printf("Iniciar jogo\n");
+                    printf("Iniciando jogo...\n");
+                    currentState = STATE_GAME;
+                    game_start(); // <<< NOVO: Prepara e inicia o jogo
+                    reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT)); // Força reconfiguração da projeção
                     break;
                 case HOW_TO_PLAY:
                     printf("Abrindo instrucoes...\n");
@@ -195,22 +201,26 @@ void mouseClick(int button, int state, int x, int y) {
     }
 }
 
-// void init() {
-//     glClearColor(0.9f, 0.9f, 0.9f, 1.0f); // Fundo cinza claro
+// NOVO: Função de teclado principal que delega para o jogo
+void keyboard(unsigned char key, int x, int y) {
+    if (currentState == STATE_GAME) {
+        GameAction action = game_keyboard(key, x, y);
+        if (action == GAME_ACTION_EXIT_TO_MENU) {
+            printf("Voltando para o menu...\n");
+            currentState = STATE_MENU;
+            // Reconfigura a projeção para o menu
+            reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
+        }
+    }
+}
 
-//     // Define apenas os dados que não mudam
-//     buttons[0].label = "Iniciar Jogo";
-//     buttons[0].hovered = false;
-
-//     buttons[1].label = "Como Jogar";
-//     buttons[1].hovered = false;
-
-//     buttons[2].label = "Sair";
-//     buttons[2].hovered = false;
-
-//     // Chama a função para calcular a posição inicial dos botões
-//     updateAllButtonPositions(INITIAL_WIN_WIDTH, INITIAL_WIN_HEIGHT);
-// }
+// NOVO: Função de timer principal que delega para o jogo
+void timer(int value) {
+    // if (currentState == STATE_GAME) {
+        game_timer(value);
+        glutTimerFunc(16, timer, 0); // Re-agenda o timer se ainda estivermos no jogo
+    // }
+}
 
 // Substitua sua função init() por esta:
 void init() {
@@ -234,36 +244,6 @@ void init() {
     updateAllButtonPositions(INITIAL_WIN_WIDTH, INITIAL_WIN_HEIGHT);
 }
 
-// void reshape(int w, int h) {
-//     // Garante que a altura nunca seja 0
-//     if (h == 0) h = 1;
-
-//     glViewport(0, 0, w, h);
-//     glMatrixMode(GL_PROJECTION);
-//     glLoadIdentity();
-//     // Usa as novas dimensões para configurar o sistema de coordenadas
-//     gluOrtho2D(0, w, h, 0);
-//     glMatrixMode(GL_MODELVIEW);
-//     glLoadIdentity();
-
-//     // ATUALIZA A POSIÇÃO dos botões sempre que a janela for redimensionada
-//     updateAllButtonPositions(w, h);
-// }
-
-// Substitua sua função reshape() por esta:
-void reshape(int w, int h) {
-    if (h == 0) h = 1;
-    glViewport(0, 0, w, h);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluOrtho2D(0, w, h, 0);
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-    // MODIFICADO: Chama a nova função que atualiza TODOS os botões
-    updateAllButtonPositions(w, h);
-}
-
 int main(int argc, char** argv) {
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
@@ -272,11 +252,14 @@ int main(int argc, char** argv) {
     glutCreateWindow("Menu - OpenGL");
 
     init();
+    game_init(); // <<< NOVO: Chama a inicialização única do jogo
 
     glutReshapeFunc(reshape);
     glutDisplayFunc(display);
-    glutPassiveMotionFunc(mouseMotion); // Para hover sem clicar
+    glutPassiveMotionFunc(mouseMotion);
     glutMouseFunc(mouseClick);
+    glutKeyboardFunc(keyboard); // <<< NOVO: Registra a função de teclado
+    glutTimerFunc(0, timer, 0); // <<< NOVO: Registra a função de timer global
 
     glutMainLoop();
     return 0;
