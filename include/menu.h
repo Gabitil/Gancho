@@ -11,7 +11,7 @@ enum MenuOption {
     EXIT_GAME
 };
 
-// Estrutura do Botão, agora com estado 'enabled'
+// Estrutura do Botão, com estado 'enabled'
 struct Button {
     float x, y, w, h;
     const char* label;
@@ -24,7 +24,7 @@ void drawButton(const Button& btn);
 void renderMenu(Button buttons[], int count);
 MenuOption handleMenuInput(int x, int y, Button buttons[], int count);
 
-// Protótipo da função de desenhar texto (que será usada por todos)
+// Protótipo da função de desenhar texto
 void drawText(float x, float y, const char* text);
 
 #endif
