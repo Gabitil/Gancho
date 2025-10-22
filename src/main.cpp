@@ -26,11 +26,7 @@ Button levelSelectBackButton;
 Button gameBackButton; // Botão "Voltar" de dentro do jogo
 
 MenuOption selectedMenuOption = NONE;
-
-// Variável de progressão
-int maxLevelUnlocked = 1; // Começa com a Fase 1 destravada
-
-// Variável global para saber qual fase está ativa
+int maxLevelUnlocked = 1;
 int activeLevel = 1;
 
 // --- Protótipos de Callbacks ---
@@ -49,11 +45,12 @@ void renderInstructions() {
     glClear(GL_COLOR_BUFFER_BIT);
     glColor3f(0.1f, 0.1f, 0.1f);
     drawText(50, 80, "COMO JOGAR");
-    drawText(50, 120, "1. Mire no teto (a linha ficara verde).");
-    drawText(50, 150, "2. Pressione e SEGURE o mouse para prender o gancho.");
-    drawText(50, 180, "3. SOLTE o mouse para se soltar.");
-    drawText(50, 210, "4. Use o balanco para chegar ate a porta.");
-    drawText(50, 240, "Pressione 'Q' ou use o botao 'Voltar' para sair da fase.");
+    drawText(50, 120, "1. Use 'A' e 'D' ou Setas para andar no chao.");
+    drawText(50, 150, "2. Mire com o mouse para onde quer disparar o gancho.");
+    drawText(50, 180, "3. CLIQUE para disparar o gancho.");
+    drawText(50, 210, "4. Se o gancho prender, ele ira te puxar.");
+    drawText(50, 240, "5. CLIQUE novamente para soltar o gancho.");
+    drawText(50, 270, "6. Observe os vetores de fisica em acao!");
     
     drawButton(instrBackButton);
     glutSwapBuffers();
@@ -79,10 +76,7 @@ void drawGameHUD() {
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
-
-    // Desenha o botão "Voltar"
     drawButton(gameBackButton);
-
     glMatrixMode(GL_PROJECTION);
     glPopMatrix();
     glMatrixMode(GL_MODELVIEW);
@@ -95,19 +89,13 @@ void display() {
     glClearColor(0.9f, 0.9f, 0.9f, 1.0f); // Fundo padrão
 
     switch (currentState) {
-        case STATE_MENU:
-            renderMenu(menuButtons, NUM_MENU_BUTTONS);
-            break;
-        case STATE_INSTRUCTIONS:
-            renderInstructions();
-            break;
-        case STATE_LEVEL_SELECT:
-            renderLevelSelect();
-            break;
+        case STATE_MENU: renderMenu(menuButtons, NUM_MENU_BUTTONS); break;
+        case STATE_INSTRUCTIONS: renderInstructions(); break;
+        case STATE_LEVEL_SELECT: renderLevelSelect(); break;
         case STATE_GAME:
-            game_display(); // 1. Desenha o jogo (com câmera)
-            drawGameHUD();  // 2. Desenha o HUD 2D por cima
-            glutSwapBuffers(); // 3. Troca o buffer
+            game_display();
+            drawGameHUD();
+            glutSwapBuffers();
             break;
     }
 }
@@ -120,7 +108,7 @@ void updateAllButtonPositions(int w, int h) {
     float margin = 20.0f;
     float startX = (w - btnW) / 2.0f;
 
-    // Botões do Menu Principal
+    // Menu Principal
     float totalMenuH = (NUM_MENU_BUTTONS * btnH) + ((NUM_MENU_BUTTONS - 1) * spacing);
     float startMenuY = (h - totalMenuH) / 2.0f;
     for (int i = 0; i < NUM_MENU_BUTTONS; ++i) {
@@ -131,13 +119,13 @@ void updateAllButtonPositions(int w, int h) {
     instrBackButton.x = margin;
     instrBackButton.y = h - btnH - margin;
 
-    // Botões de Seleção de Fase
+    // Seleção de Fase
     float totalLevelH = (NUM_LEVELS * btnH) + ((NUM_LEVELS - 1) * spacing);
     float startLevelY = (h - totalLevelH) / 2.0f;
     for(int i = 0; i < NUM_LEVELS; i++) {
         levelButtons[i].x = startX;
         levelButtons[i].y = startLevelY + i * (btnH + spacing);
-        levelButtons[i].enabled = (i + 1 <= maxLevelUnlocked); // Atualiza destravamento
+        levelButtons[i].enabled = (i + 1 <= maxLevelUnlocked);
     }
     
     levelSelectBackButton.x = margin;
@@ -249,15 +237,34 @@ void mouseClick(int button, int state, int x, int y) {
     glutPostRedisplay();
 }
 
-// Callback de teclas normais
-void keyboard(unsigned char key, int x, int y) {
+// --- NOVOS Callbacks de Teclado (Down/Up) ---
+
+void keyboard_down(unsigned char key, int x, int y) {
     if (currentState == STATE_GAME) {
-        GameAction action = game_keyboard(key, x, y); // Passa 'q' para o jogo
+        GameAction action = game_key_down(key, x, y);
         if (action == GAME_ACTION_EXIT_TO_MENU) {
             currentState = STATE_LEVEL_SELECT;
             reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
             glutPostRedisplay();
         }
+    }
+}
+
+void keyboard_up(unsigned char key, int x, int y) {
+    if (currentState == STATE_GAME) {
+        game_key_up(key, x, y);
+    }
+}
+
+void special_down(int key, int x, int y) {
+    if (currentState == STATE_GAME) {
+        game_special_down(key, x, y);
+    }
+}
+
+void special_up(int key, int x, int y) {
+    if (currentState == STATE_GAME) {
+        game_special_up(key, x, y);
     }
 }
 
@@ -320,14 +327,18 @@ int main(int argc, char** argv) {
 
     init(); 
 
-    // Registra Callbacks
+    // Registra Callbacks (Atualizado)
     glutDisplayFunc(display);
     glutReshapeFunc(reshape);
-    glutMouseFunc(mouseClick);        // Para cliques (menus e jogo)
-    glutPassiveMotionFunc(mouseMotion); // Para hover (menus)
-    glutMotionFunc(mouseMotion);      // Para arrastar (mira do jogo)
-    glutKeyboardFunc(keyboard);
-    // glutSpecialFunc não é mais usado
+    glutMouseFunc(mouseClick);
+    glutPassiveMotionFunc(mouseMotion); // Hover
+    glutMotionFunc(mouseMotion);      // Arrastar (embora não usemos mais, é bom manter)
+    
+    // NOVOS Callbacks de Teclado
+    glutKeyboardFunc(keyboard_down);
+    glutKeyboardUpFunc(keyboard_up);
+    glutSpecialFunc(special_down);
+    glutSpecialUpFunc(special_up);
 
     glutMainLoop();
     return 0;

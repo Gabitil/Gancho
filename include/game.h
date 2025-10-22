@@ -16,8 +16,13 @@ void game_start_level(int level);
 GameAction game_update(); // Lógica/Física
 void game_display();      // Desenho
 void game_reshape(int w, int h);
-GameAction game_keyboard(unsigned char key, int x, int y); // Para 'q'
-void game_mouse_motion(int x, int y);                      // Para mirar
-void game_mouse_click(int button, int state);              // Para atirar/soltar gancho
+void game_mouse_motion(int x, int y);              // Para mirar
+void game_mouse_click(int button, int state);      // Para atirar/soltar gancho
+
+// NOVO: Funções para teclas pressionadas/soltas
+GameAction game_key_down(unsigned char key, int x, int y);
+void game_key_up(unsigned char key, int x, int y);
+void game_special_down(int key, int x, int y);
+void game_special_up(int key, int x, int y);
 
 #endif // GAME_H

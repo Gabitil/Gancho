@@ -1,7 +1,7 @@
 #include "menu.h"
-#include <cstring> // Para strlen, ou podemos usar o método do glutBitmapWidth
+#include <cstring> 
 
-// Função auxiliar para desenhar texto
+// Função auxiliar para desenhar texto (usada pelos menus)
 void drawText(float x, float y, const char* text) {
     glRasterPos2f(x, y);
     for (const char* c = text; *c; ++c) {
@@ -13,7 +13,7 @@ void drawText(float x, float y, const char* text) {
 void drawButton(const Button& btn) {
     // Cor do botão baseada no estado
     if (!btn.enabled) {
-        glColor3f(0.5f, 0.5f, 0.5f); // Cinza para botão desabilitado
+        glColor3f(0.5f, 0.5f, 0.5f); // Cinza desabilitado
     } else if (btn.hovered) {
         glColor3f(0.4f, 0.4f, 0.4f); // Cor de hover
     } else {
@@ -30,9 +30,9 @@ void drawButton(const Button& btn) {
 
     // Cor do texto baseada no estado
     if (!btn.enabled) {
-        glColor3f(0.8f, 0.8f, 0.8f); // Cinza claro para texto desabilitado
+        glColor3f(0.8f, 0.8f, 0.8f); // Cinza claro
     } else {
-        glColor3f(1.0f, 1.0f, 1.0f); // Texto branco
+        glColor3f(1.0f, 1.0f, 1.0f); // Branco
     }
 
     // Calcula a posição para centralizar o texto
@@ -52,22 +52,19 @@ void drawButton(const Button& btn) {
 // Renderiza o menu principal
 void renderMenu(Button buttons[], int count) {
     glClear(GL_COLOR_BUFFER_BIT);
-
     for (int i = 0; i < count; i++) {
         drawButton(buttons[i]);
     }
-
     glutSwapBuffers();
 }
 
 // Verifica qual botão do menu foi clicado
 MenuOption handleMenuInput(int x, int y, Button buttons[], int count) {
     for (int i = 0; i < count; i++) {
-        // Só retorna a opção se o botão estiver habilitado e com hover
         if (buttons[i].enabled &&
             x >= buttons[i].x && x <= buttons[i].x + buttons[i].w &&
             y >= buttons[i].y && y <= buttons[i].y + buttons[i].h) {
-            return (MenuOption)(i + 1); // START_GAME = 1, HOW_TO_PLAY = 2...
+            return (MenuOption)(i + 1);
         }
     }
     return NONE;
