@@ -11,83 +11,96 @@
 #endif
 
 // --- Constantes de Física ---
-const float GRAVITY = -0.1f;
-const float PLAYER_WALK_ACCEL = 0.1f;
-const float MAX_WALK_SPEED = 3.0f;
-const float DAMPING_FACTOR = 0.99f;
+// Valores que definem forças e parâmetros físicos gerais do personagem.
+const float GRAVITY = -0.1f;              // Aceleração vertical (negativa = para baixo)
+const float PLAYER_WALK_ACCEL = 0.1f;     // Aceleração horizontal aplicada ao caminhar
+const float MAX_WALK_SPEED = 3.0f;        // Velocidade máxima permitida enquanto "no chão"
+const float DAMPING_FACTOR = 0.99f;       // Fator de amortecimento aplicado quando pendurado
 
 // --- Constantes do Gancho ---
-const float HOOK_SPEED = 25.0f;
-const float MAX_PULL_STRENGTH_PHYSICS = 0.4f;
+// Parâmetros que controlam o comportamento do gancho/arpão.
+const float HOOK_SPEED = 25.0f;             // Velocidade do projétil do gancho
+const float MAX_PULL_STRENGTH_PHYSICS = 0.4f;   // Força máxima que o gancho aplica ao jogador
 
 // --- Limite de Velocidade e Escala Visual ---
-const float MAX_PLAYER_SPEED = 30.0f;
+const float MAX_PLAYER_SPEED = 30.0f; // Limita velocidade total (evita valores numéricos muito grandes)
 
 // --- Constantes do Mundo e Visualização ---
 const float PLAYER_HEIGHT = 40.0f;
-const float VIEW_WIDTH = 800.0f;
-const float VIEW_HEIGHT = 600.0f;
-const float WORLD_WIDTH = 3000.0f;
-const float WORLD_HEIGHT = 600.0f;
+const float VIEW_WIDTH = 800.0f;  // Largura da câmera / janela de visualização em unidades do jogo
+const float VIEW_HEIGHT = 600.0f; // Altura da câmera
+const float WORLD_WIDTH = 3000.0f; // Dimensão horizontal total do mundo
+const float WORLD_HEIGHT = 600.0f; // Dimensão vertical (não muito usada neste código além de limites)
 
 // --- Lógica de Escala de Vetores ---
-const float MAX_VISUAL_AIM_LENGTH = 5.0f * PLAYER_HEIGHT;
-const float MAX_AIM_FORCE_DISPLAY = 100.0f;
-const float VECTOR_VISUAL_SCALE = MAX_VISUAL_AIM_LENGTH / MAX_PULL_STRENGTH_PHYSICS;
-const float VELOCITY_VISUAL_SCALE = 7.0f;
+// Esses fatores são usados para converter grandezas físicas (força, velocidade)
+// em representações visuais (comprimentos de vetores desenhados na tela).
+const float MAX_VISUAL_AIM_LENGTH = 5.0f * PLAYER_HEIGHT; // comprimento máximo visível do vetor de mira
+const float MAX_AIM_FORCE_DISPLAY = 100.0f;               // valor numérico mostrado na HUD como "força"
+const float VECTOR_VISUAL_SCALE = MAX_VISUAL_AIM_LENGTH / MAX_PULL_STRENGTH_PHYSICS; // escala para desenhar vetores de força
+const float VELOCITY_VISUAL_SCALE = 7.0f; // escala para desenhar vetor de velocidade
 
 // --- Estruturas Modulares ---
+// GameObject representa objetos com posição, tamanho, cor e velocidade.
 struct GameObject {
-    float x, y, w, h;
-    float r, g, b;
-    float velocityX, velocityY;
+    float x, y, w, h;            // posição (x,y) e dimensão (w=largura, h=altura)
+    float r, g, b;               // cor para desenho (RGB entre 0 e 1)
+    float velocityX, velocityY; // velocidades atuais nas direções X e Y
 };
 
+// Plataformas possuem propriedades adicionais como atrito e se podem ser fixadas pelo gancho.
 struct Platform {
-    float x, y, w, h;
-    float r, g, b;
-    bool isHookable;
-    float frictionCoefficient;
+    float x, y, w, h;            // retângulo da plataforma
+    float r, g, b;               // cor
+    bool isHookable;             // se o gancho pode "fixar" nessa plataforma
+    float frictionCoefficient;   // coeficiente de atrito para física
 };
 
 // --- Variáveis Globais do Jogo ---
+// Objetos do jogo e estado global. Em um projeto maior você preferiria
+// encapsular em classes/structs em vez de variáveis globais.
 GameObject player;
 GameObject door;
 Platform platforms[10];
 int numPlatforms = 0;
-Platform* collidingPlatform = NULL;
+Platform* collidingPlatform = NULL; // ponteiro para plataforma com a qual o jogador está em contato
 int CURRENT_LEVEL = 1;
-bool isGrounded = false;
-bool isHooked = false;
-bool isHookFiring = false;
-float hookPointX = 0, hookPointY = 0;
-float hookProjectileX = 0, hookProjectileY = 0;
-float hookProjectileVelX = 0, hookProjectileVelY = 0;
-float ropeLength = 0;
-float currentPullForce = 0.0f;
-float mouseGameX = 0, mouseGameY = 0;
-float aimDisplayForce = 0;
-float cameraLeft = 0, cameraBottom = 0;
-bool isPressingLeft = false;
-bool isPressingRight = false;
-float forceNormal = 0;
-float forceFriction = 0;
-float forceTensionX = 0;
-float forceTensionY = 0;
+bool isGrounded = false;      // indica se o jogador está no chão (ou em cima de uma plataforma)
+bool isHooked = false;        // se o gancho está fixado em um ponto
+bool isHookFiring = false;    // se o projétil do gancho está em voo
+float hookPointX = 0, hookPointY = 0; // ponto onde o gancho está preso (se isHooked)
+float hookProjectileX = 0, hookProjectileY = 0; // posição do projétil enquanto voa
+float hookProjectileVelX = 0, hookProjectileVelY = 0; // velocidade do projétil
+float ropeLength = 0; // comprimento do "cordão" entre jogador e ponto do gancho
+float currentPullForce = 0.0f; // força atual aplicada pelo gancho (física)
+float mouseGameX = 0, mouseGameY = 0; // posição do mouse convertida para coordenadas do mundo
+float aimDisplayForce = 0; // valor calculado para exibir a força de mira no HUD
+float cameraLeft = 0, cameraBottom = 0; // canto inferior-esquerdo da câmera/viewport no mundo
+bool isPressingLeft = false; // input: pressionando esquerda
+bool isPressingRight = false; // input: pressionando direita
+float forceNormal = 0;       // força normal (reação do solo)
+float forceFriction = 0;     // força de atrito
+float forceTensionX = 0;     // componente X da tensão do gancho (para debug)
+float forceTensionY = 0;     // componente Y da tensão do gancho (para debug)
 
-// Variáveis para cálculo de aceleração
+// Variáveis para cálculo de aceleração (derivada da magnitude da velocidade)
 float lastVelocityMag = 0.0f;
 float currentAcceleration = 0.0f;
 
 // --- Funções Auxiliares Internas ---
 
+// Desenha um retângulo preenchido (usado para jogador, plataformas, porta e fundo do HUD)
 void drawRect(float x, float y, float w, float h, float r, float g, float b) {
-    glColor3f(r, g, b);
+    glEnable(GL_BLEND); // Habilita blending para transparência
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4f(r, g, b, 0.8f); // ALTERADO: Usa glColor4f para adicionar canal alfa (transparência)
     glBegin(GL_QUADS);
     glVertex2f(x, y); glVertex2f(x + w, y); glVertex2f(x + w, y + h); glVertex2f(x, y + h);
     glEnd();
+    glDisable(GL_BLEND);
 }
 
+// Desenha texto bitmap na posição (x,y) usando uma fonte GLUT
 void game_drawText(float x, float y, const char* text, void* font = GLUT_BITMAP_HELVETICA_18) {
     glRasterPos2f(x, y);
     for (const char* c = text; *c; ++c) {
@@ -95,12 +108,13 @@ void game_drawText(float x, float y, const char* text, void* font = GLUT_BITMAP_
     }
 }
 
+// Verifica se um ponto (x,y) está dentro do retângulo de um objeto
 bool isPointInside(float x, float y, float objX, float objY, float objW, float objH) {
     return (x >= objX && x <= objX + objW &&
             y >= objY && y <= objY + objH);
 }
 
-// ALTERADO: getTextWidth agora aceita void* font para compatibilidade
+// Retorna largura (em pixels) do texto usando glutBitmapWidth caractere-a-caractere
 int getTextWidth(const char* text, void* font) {
     int width = 0;
     for (const char* c = text; *c; ++c) {
@@ -109,6 +123,8 @@ int getTextWidth(const char* text, void* font) {
     return width;
 }
 
+// Interseção entre linha (x1,y1)-(x2,y2) e retângulo da plataforma p.
+// Retorna true se a linha intersecta o retângulo; hitX/hitY contém o ponto de impacto.
 bool lineRectIntersection(float x1, float y1, float x2, float y2, const Platform& p, float& hitX, float& hitY) {
     float t0 = 0.0f, t1 = 1.0f;
     float dx = x2 - x1, dy = y2 - y1;
@@ -133,6 +149,7 @@ bool lineRectIntersection(float x1, float y1, float x2, float y2, const Platform
     return true;
 }
 
+// "Corta" uma linha para que seu ponto final (endX,endY) fique dentro da viewport
 void clipLineToView(float startX, float startY, float& endX, float& endY) {
     float viewRight = cameraLeft + VIEW_WIDTH;
     float viewTop = cameraBottom + VIEW_HEIGHT;
@@ -148,6 +165,7 @@ void clipLineToView(float startX, float startY, float& endX, float& endY) {
     endY = startY + t * dy;
 }
 
+// Desenha um vetor com ponta de seta.
 void drawVector(float startX, float startY, float vX_physics, float vY_physics, float scale,
                   float r, float g, float b, const char* label) {
     
@@ -170,18 +188,20 @@ void drawVector(float startX, float startY, float vX_physics, float vY_physics, 
     glVertex2f(endX - size * cos(angle + 0.5f), endY - size * sin(angle + 0.5f));
     glEnd();
     
-    // game_drawText(endX + 5, endY + 5, label); // Rótulo do vetor removido da visualização 3D, movido para o HUD
+    // ALTERADO: Rótulo do vetor agora é desenhado na cena
+    game_drawText(endX + 5, endY + 5, label, GLUT_BITMAP_9_BY_15);
 }
-
 
 // --- Funções Principais do Jogo ---
 
+// Inicialização do mundo
 void game_init() {
     numPlatforms = 2;
     platforms[0] = {0, 0, WORLD_WIDTH, 40, 0.2f, 0.6f, 0.2f, true, 0.8f};
     platforms[1] = {500, 400, 300, 40, 0.4f, 0.4f, 0.4f, true, 0.1f};
 }
 
+// Prepara o nível para iniciar/reiniciar
 void game_start_level(int level) {
     player = {50, platforms[0].h, 40, PLAYER_HEIGHT, 0.9f, 0.1f, 0.1f, 0, 0};
     door = {WORLD_WIDTH - 200, platforms[0].h, 30, 80, 0.5f, 0.3f, 0.0f};
@@ -193,6 +213,7 @@ void game_start_level(int level) {
 
 void game_reshape(int w, int h) { glViewport(0, 0, w, h); }
 
+// A função central de atualização do jogo (física, colisões, etc.)
 GameAction game_update() {
     forceNormal = 0; forceFriction = 0; forceTensionX = 0; forceTensionY = 0;
     float accelX = 0, accelY = GRAVITY;
@@ -309,42 +330,24 @@ GameAction game_update() {
     return GAME_ACTION_CONTINUE;
 }
 
-// REMOVIDO: drawGameHUD_Info() foi esvaziado, pode ser usado para outro HUD no futuro
-void drawGameHUD_Info() {
-    // Mantido, mas sem conteúdo por enquanto.
-    // float y_pos = glutGet(GLUT_WINDOW_HEIGHT) - 20.0f; // Exemplo de uso
-    // glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity();
-    // gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT), 0);
-    // glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
-    // glColor3f(1.0f, 1.0f, 1.0f);
-    // game_drawText(10.0f, y_pos, "Informacoes aqui", GLUT_BITMAP_9_BY_15);
-    // glMatrixMode(GL_PROJECTION); glPopMatrix();
-    // glMatrixMode(GL_MODELVIEW); glPopMatrix();
-}
-
-// NOVO: Função para o bloco de informações de física no canto superior direito
+// ALTERADO: HUD de física aprimorado
 void drawPhysicsDebugHUD() {
     glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity();
-    // Configura o sistema de coordenadas para a tela (0,0 no topo esquerdo)
     gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT), 0);
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
 
-    // Começa a desenhar de cima para baixo
-    float line_height = 18.0f; // Altura aproximada de uma linha de texto GLUT_BITMAP_9_BY_15
-    float margin_right = 10.0f;
-    float margin_top = 10.0f;
-    float current_y = margin_top;
+    float line_height = 15.0f; // Altura da linha para GLUT_BITMAP_9_BY_15
+    float margin = 10.0f;
+    float padding = 5.0f;
 
     std::vector<std::string> info_lines;
     char buffer[100];
     
-    // Coleta as informações
     float velMag = sqrt(player.velocityX * player.velocityX + player.velocityY * player.velocityY);
     sprintf(buffer, "v: %.1f m/s", velMag); info_lines.push_back(buffer);
     
-    if (fabs(currentAcceleration) > 0.01f) {
-        sprintf(buffer, "a: %.2f m/s^2", currentAcceleration); info_lines.push_back(buffer);
-    }
+    // ALTERADO: Aceleração agora é sempre exibida
+    sprintf(buffer, "a: %.2f m/s^2", currentAcceleration); info_lines.push_back(buffer);
 
     sprintf(buffer, "P: %.2f N", GRAVITY); info_lines.push_back(buffer);
     
@@ -353,38 +356,41 @@ void drawPhysicsDebugHUD() {
         if (fabs(forceFriction) > 0.001f) {
             sprintf(buffer, "Fat: %.2f N", fabs(forceFriction)); info_lines.push_back(buffer);
         }
-        if (collidingPlatform) {
-            int platform_idx = collidingPlatform - platforms + 1;
-            sprintf(buffer, "mu_%d: %.2f", platform_idx, collidingPlatform->frictionCoefficient);
-            info_lines.push_back(buffer);
-        }
     }
     if (isHooked) {
         sprintf(buffer, "T: %.2f N", currentPullForce); info_lines.push_back(buffer);
     }
     
-    // Calcula o tamanho do "bloquinho" preto
+    // ALTERADO: Adiciona 'mu' apenas para plataformas visíveis na tela
+    for (int i = 0; i < numPlatforms; ++i) {
+        Platform* p = &platforms[i];
+        // Verifica se a plataforma está visível horizontalmente na câmera
+        if (p->x < cameraLeft + VIEW_WIDTH && p->x + p->w > cameraLeft) {
+            sprintf(buffer, "mu_%d: %.2f", i + 1, p->frictionCoefficient);
+            info_lines.push_back(buffer);
+        }
+    }
+    
     float max_width = 0;
     for (const auto& line : info_lines) {
         max_width = std::max(max_width, (float)getTextWidth(line.c_str(), GLUT_BITMAP_9_BY_15));
     }
-    float padding = 5.0f;
+
     float block_width = max_width + 2 * padding;
-    float block_height = info_lines.size() * line_height + 2 * padding;
+    float block_height = info_lines.size() * line_height + padding; // Ajuste na altura do bloco
+    float block_x = glutGet(GLUT_WINDOW_WIDTH) - margin - block_width;
+    float block_y = margin;
 
-    // Desenha o fundo preto do bloco
-    float block_x = glutGet(GLUT_WINDOW_WIDTH) - margin_right - block_width;
-    float block_y = margin_top;
-    drawRect(block_x, block_y, block_width, block_height, 0.0f, 0.0f, 0.0f); // Fundo preto
+    // Desenha o fundo preto semi-transparente
+    drawRect(block_x, block_y, block_width, block_height, 0.0f, 0.0f, 0.0f);
 
-    // Desenha as linhas de texto
+    float current_y = block_y + padding + 10; // Posição Y inicial para o texto
     for (const auto& line : info_lines) {
-        float text_width = getTextWidth(line.c_str(), GLUT_BITMAP_9_BY_15);
-        // Alinha o texto à direita dentro do bloco
-        float text_x = glutGet(GLUT_WINDOW_WIDTH) - margin_right - padding - text_width;
+        // ALTERADO: Alinha todo o texto à esquerda dentro do bloco para consistência
+        float text_x = block_x + padding;
         
-        glColor3f(1.0f, 1.0f, 1.0f); // Texto branco
-        game_drawText(text_x, current_y + padding, line.c_str(), GLUT_BITMAP_9_BY_15);
+        glColor3f(1.0f, 1.0f, 1.0f);
+        game_drawText(text_x, current_y, line.c_str(), GLUT_BITMAP_9_BY_15);
         current_y += line_height;
     }
 
@@ -421,19 +427,19 @@ void game_display() {
     
     drawRect(-player.w / 2, -player.h / 2, player.w, player.h, player.r, player.g, player.b);
 
-    // Os rótulos dos vetores agora são exibidos no HUD, não na cena 3D
-    drawVector(0, 0, 0, GRAVITY, VECTOR_VISUAL_SCALE, 0.2f, 0.2f, 1.0f, ""); // Peso
+    // ALTERADO: Adicionados rótulos aos vetores
+    drawVector(0, 0, 0, GRAVITY, VECTOR_VISUAL_SCALE, 0.2f, 0.2f, 1.0f, "P");
     float velMag = sqrt(player.velocityX * player.velocityX + player.velocityY * player.velocityY);
     if (velMag > 0.01) {
-        drawVector(0, 0, player.velocityX, player.velocityY, VELOCITY_VISUAL_SCALE, 1.0f, 0.5f, 0.0f, ""); // Velocidade
+        drawVector(0, 0, player.velocityX, player.velocityY, VELOCITY_VISUAL_SCALE, 1.0f, 0.5f, 0.0f, "v");
     }
     if (isHooked) {
-        drawVector(0, 0, forceTensionX, forceTensionY, VECTOR_VISUAL_SCALE, 1.0f, 0.0f, 1.0f, ""); // Tensão
+        drawVector(0, 0, forceTensionX, forceTensionY, VECTOR_VISUAL_SCALE, 1.0f, 0.0f, 1.0f, "T");
     }
     if (isGrounded) {
-        drawVector(0, -player.h/2, 0, forceNormal, VECTOR_VISUAL_SCALE, 0.0f, 1.0f, 1.0f, ""); // Normal
+        drawVector(0, -player.h/2, 0, forceNormal, VECTOR_VISUAL_SCALE, 0.0f, 1.0f, 1.0f, "N");
         if (fabs(forceFriction) > 0.001f) {
-            drawVector(0, -player.h/2 + 5, forceFriction, 0, VECTOR_VISUAL_SCALE, 1.0f, 0.0f, 0.0f, ""); // Atrito
+            drawVector(0, -player.h/2 + 5, forceFriction, 0, VECTOR_VISUAL_SCALE, 1.0f, 0.0f, 0.0f, "Fat");
         }
     }
     
@@ -450,8 +456,9 @@ void game_display() {
     float aimPhysicsY = vANY * forcePercent * MAX_PULL_STRENGTH_PHYSICS;
     
     if (!isHooked && !isHookFiring) {
-        // Rótulo da força de mira também no HUD, mas o vetor ainda é desenhado aqui
-        drawVector(pCX, pCY, aimPhysicsX, aimPhysicsY, VECTOR_VISUAL_SCALE, 1.0f, 1.0f, 1.0f, "");
+        char magText[50];
+        sprintf(magText, "Forca: %.0f", aimDisplayForce);
+        drawVector(pCX, pCY, aimPhysicsX, aimPhysicsY, VECTOR_VISUAL_SCALE, 1.0f, 1.0f, 1.0f, magText);
     }
 
     if (isHookFiring || isHooked) {
@@ -464,10 +471,7 @@ void game_display() {
         glBegin(GL_LINES); glVertex2f(pCX, pCY); glVertex2f(endX, endY); glEnd();
     }
     
-    // NOVO: Chama o HUD de debug no canto superior direito
     drawPhysicsDebugHUD();
-
-    // drawGameHUD_Info(); // Esta função não tem mais conteúdo por enquanto
 }
 
 // --- Funções de Input ---
