@@ -4,7 +4,7 @@
 #include <math.h>
 #include <string>
 #include <vector>
-#include <algorithm>
+#include <algorithm> // Para std::min
 
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS
@@ -75,6 +75,10 @@ float forceFriction = 0;
 float forceTensionX = 0;
 float forceTensionY = 0;
 
+// Variáveis para cálculo de aceleração
+float lastVelocityMag = 0.0f;
+float currentAcceleration = 0.0f;
+
 // --- Funções Auxiliares Internas ---
 
 void drawRect(float x, float y, float w, float h, float r, float g, float b) {
@@ -91,12 +95,12 @@ void game_drawText(float x, float y, const char* text, void* font = GLUT_BITMAP_
     }
 }
 
-// READICIONADO: A função que foi removida por engano
 bool isPointInside(float x, float y, float objX, float objY, float objW, float objH) {
     return (x >= objX && x <= objX + objW &&
             y >= objY && y <= objY + objH);
 }
 
+// ALTERADO: getTextWidth agora aceita void* font para compatibilidade
 int getTextWidth(const char* text, void* font) {
     int width = 0;
     for (const char* c = text; *c; ++c) {
@@ -144,25 +148,31 @@ void clipLineToView(float startX, float startY, float& endX, float& endY) {
     endY = startY + t * dy;
 }
 
-void drawVector(float startX, float startY, float vX_accel, float vY_accel,
+void drawVector(float startX, float startY, float vX_physics, float vY_physics, float scale,
                   float r, float g, float b, const char* label) {
-    float vX_visual = vX_accel * VECTOR_VISUAL_SCALE;
-    float vY_visual = vY_accel * VECTOR_VISUAL_SCALE;
+    
+    float vX_visual = vX_physics * scale;
+    float vY_visual = vY_physics * scale;
     float endX = startX + vX_visual;
     float endY = startY + vY_visual;
+    
     glColor3f(r, g, b); glLineWidth(2.0f);
     glBegin(GL_LINES); glVertex2f(startX, startY); glVertex2f(endX, endY); glEnd();
     glLineWidth(1.0f);
+    
     float angle = atan2(vY_visual, vX_visual);
     if (vX_visual == 0 && vY_visual == 0) angle = 0;
     float size = 10.0f;
+    
     glBegin(GL_TRIANGLES);
     glVertex2f(endX, endY);
     glVertex2f(endX - size * cos(angle - 0.5f), endY - size * sin(angle - 0.5f));
     glVertex2f(endX - size * cos(angle + 0.5f), endY - size * sin(angle + 0.5f));
     glEnd();
-    game_drawText(endX + 5, endY + 5, label);
+    
+    // game_drawText(endX + 5, endY + 5, label); // Rótulo do vetor removido da visualização 3D, movido para o HUD
 }
+
 
 // --- Funções Principais do Jogo ---
 
@@ -177,6 +187,8 @@ void game_start_level(int level) {
     door = {WORLD_WIDTH - 200, platforms[0].h, 30, 80, 0.5f, 0.3f, 0.0f};
     isGrounded = true; isHooked = false; isHookFiring = false;
     collidingPlatform = &platforms[0]; isPressingLeft = false; isPressingRight = false;
+    lastVelocityMag = 0.0f;
+    currentAcceleration = 0.0f;
 }
 
 void game_reshape(int w, int h) { glViewport(0, 0, w, h); }
@@ -260,6 +272,8 @@ GameAction game_update() {
     if (isHookFiring) {
         float prevHookX = hookProjectileX, prevHookY = hookProjectileY;
         hookProjectileX += hookProjectileVelX; hookProjectileY += hookProjectileVelY;
+        
+        bool hit = false;
         for (int i = 0; i < numPlatforms; i++) {
             Platform* p = &platforms[i];
             float hitX, hitY;
@@ -269,50 +283,115 @@ GameAction game_update() {
                 float dx = hookPointX - (player.x + player.w / 2), dy = hookPointY - (player.y + player.h / 2);
                 ropeLength = sqrt(dx * dx + dy * dy);
                 isGrounded = false;
+                hit = true;
                 break;
             }
         }
-    }
 
-    if (isPointInside(player.x, player.y, door.x, door.y, door.w, door.h)) {
+        if (!hit) {
+            if (hookProjectileX < cameraLeft || 
+                hookProjectileX > cameraLeft + VIEW_WIDTH ||
+                hookProjectileY < cameraBottom ||
+                hookProjectileY > cameraBottom + VIEW_HEIGHT)
+            {
+                isHookFiring = false;
+            }
+        }
+    }
+    
+    float currentVelocityMag = sqrt(player.velocityX * player.velocityX + player.velocityY * player.velocityY);
+    currentAcceleration = currentVelocityMag - lastVelocityMag;
+    lastVelocityMag = currentVelocityMag;
+
+    if (isPointInside(player.x + player.w / 2, player.y + player.h / 2, door.x, door.y, door.w, door.h)) {
         return GAME_ACTION_LEVEL_WON;
     }
     return GAME_ACTION_CONTINUE;
 }
 
+// REMOVIDO: drawGameHUD_Info() foi esvaziado, pode ser usado para outro HUD no futuro
 void drawGameHUD_Info() {
+    // Mantido, mas sem conteúdo por enquanto.
+    // float y_pos = glutGet(GLUT_WINDOW_HEIGHT) - 20.0f; // Exemplo de uso
+    // glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity();
+    // gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT), 0);
+    // glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
+    // glColor3f(1.0f, 1.0f, 1.0f);
+    // game_drawText(10.0f, y_pos, "Informacoes aqui", GLUT_BITMAP_9_BY_15);
+    // glMatrixMode(GL_PROJECTION); glPopMatrix();
+    // glMatrixMode(GL_MODELVIEW); glPopMatrix();
+}
+
+// NOVO: Função para o bloco de informações de física no canto superior direito
+void drawPhysicsDebugHUD() {
     glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity();
+    // Configura o sistema de coordenadas para a tela (0,0 no topo esquerdo)
     gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT), 0);
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity();
 
-    std::string hud_string = "| ";
+    // Começa a desenhar de cima para baixo
+    float line_height = 18.0f; // Altura aproximada de uma linha de texto GLUT_BITMAP_9_BY_15
+    float margin_right = 10.0f;
+    float margin_top = 10.0f;
+    float current_y = margin_top;
+
+    std::vector<std::string> info_lines;
     char buffer[100];
+    
+    // Coleta as informações
     float velMag = sqrt(player.velocityX * player.velocityX + player.velocityY * player.velocityY);
-    sprintf(buffer, "v: %.1f m/s | ", velMag); hud_string += buffer;
-    sprintf(buffer, "P: %.2f N | ", GRAVITY); hud_string += buffer;
+    sprintf(buffer, "v: %.1f m/s", velMag); info_lines.push_back(buffer);
+    
+    if (fabs(currentAcceleration) > 0.01f) {
+        sprintf(buffer, "a: %.2f m/s^2", currentAcceleration); info_lines.push_back(buffer);
+    }
+
+    sprintf(buffer, "P: %.2f N", GRAVITY); info_lines.push_back(buffer);
+    
     if (isGrounded) {
-        sprintf(buffer, "N: %.2f N | ", forceNormal); hud_string += buffer;
+        sprintf(buffer, "N: %.2f N", forceNormal); info_lines.push_back(buffer);
         if (fabs(forceFriction) > 0.001f) {
-            sprintf(buffer, "Fat: %.2f N | ", fabs(forceFriction)); hud_string += buffer;
+            sprintf(buffer, "Fat: %.2f N", fabs(forceFriction)); info_lines.push_back(buffer);
         }
         if (collidingPlatform) {
             int platform_idx = collidingPlatform - platforms + 1;
-            sprintf(buffer, "mu_%d: %.2f | ", platform_idx, collidingPlatform->frictionCoefficient);
-            hud_string += buffer;
+            sprintf(buffer, "mu_%d: %.2f", platform_idx, collidingPlatform->frictionCoefficient);
+            info_lines.push_back(buffer);
         }
     }
     if (isHooked) {
-        sprintf(buffer, "T: %.2f N | ", currentPullForce); hud_string += buffer;
+        sprintf(buffer, "T: %.2f N", currentPullForce); info_lines.push_back(buffer);
     }
     
-    glColor3f(0.0f, 0.0f, 0.0f);
-    game_drawText(11.0f, 21.0f, hud_string.c_str(), GLUT_BITMAP_9_BY_15);
-    glColor3f(1.0f, 1.0f, 1.0f);
-    game_drawText(10.0f, 20.0f, hud_string.c_str(), GLUT_BITMAP_9_BY_15);
+    // Calcula o tamanho do "bloquinho" preto
+    float max_width = 0;
+    for (const auto& line : info_lines) {
+        max_width = std::max(max_width, (float)getTextWidth(line.c_str(), GLUT_BITMAP_9_BY_15));
+    }
+    float padding = 5.0f;
+    float block_width = max_width + 2 * padding;
+    float block_height = info_lines.size() * line_height + 2 * padding;
+
+    // Desenha o fundo preto do bloco
+    float block_x = glutGet(GLUT_WINDOW_WIDTH) - margin_right - block_width;
+    float block_y = margin_top;
+    drawRect(block_x, block_y, block_width, block_height, 0.0f, 0.0f, 0.0f); // Fundo preto
+
+    // Desenha as linhas de texto
+    for (const auto& line : info_lines) {
+        float text_width = getTextWidth(line.c_str(), GLUT_BITMAP_9_BY_15);
+        // Alinha o texto à direita dentro do bloco
+        float text_x = glutGet(GLUT_WINDOW_WIDTH) - margin_right - padding - text_width;
+        
+        glColor3f(1.0f, 1.0f, 1.0f); // Texto branco
+        game_drawText(text_x, current_y + padding, line.c_str(), GLUT_BITMAP_9_BY_15);
+        current_y += line_height;
+    }
 
     glMatrixMode(GL_PROJECTION); glPopMatrix();
     glMatrixMode(GL_MODELVIEW); glPopMatrix();
 }
+
 
 void game_display() {
     glClearColor(0.5f, 0.7f, 1.0f, 1.0f);
@@ -334,20 +413,46 @@ void game_display() {
         game_drawText(p->x + 20, p->y + 15, muText);
     }
     drawRect(door.x, door.y, door.w, door.h, door.r, door.g, door.b);
-    drawRect(player.x, player.y, player.w, player.h, player.r, player.g, player.b);
-
+    
     float pCX = player.x + player.w / 2, pCY = player.y + player.h / 2;
+
+    glPushMatrix();
+    glTranslatef(pCX, pCY, 0.0f);
+    
+    drawRect(-player.w / 2, -player.h / 2, player.w, player.h, player.r, player.g, player.b);
+
+    // Os rótulos dos vetores agora são exibidos no HUD, não na cena 3D
+    drawVector(0, 0, 0, GRAVITY, VECTOR_VISUAL_SCALE, 0.2f, 0.2f, 1.0f, ""); // Peso
+    float velMag = sqrt(player.velocityX * player.velocityX + player.velocityY * player.velocityY);
+    if (velMag > 0.01) {
+        drawVector(0, 0, player.velocityX, player.velocityY, VELOCITY_VISUAL_SCALE, 1.0f, 0.5f, 0.0f, ""); // Velocidade
+    }
+    if (isHooked) {
+        drawVector(0, 0, forceTensionX, forceTensionY, VECTOR_VISUAL_SCALE, 1.0f, 0.0f, 1.0f, ""); // Tensão
+    }
+    if (isGrounded) {
+        drawVector(0, -player.h/2, 0, forceNormal, VECTOR_VISUAL_SCALE, 0.0f, 1.0f, 1.0f, ""); // Normal
+        if (fabs(forceFriction) > 0.001f) {
+            drawVector(0, -player.h/2 + 5, forceFriction, 0, VECTOR_VISUAL_SCALE, 1.0f, 0.0f, 0.0f, ""); // Atrito
+        }
+    }
+    
+    glPopMatrix();
+
     float vAX = mouseGameX - pCX, vAY = mouseGameY - pCY;
     float rMD = sqrt(vAX * vAX + vAY * vAY);
     float cMD = fmin(rMD, MAX_VISUAL_AIM_LENGTH);
     aimDisplayForce = (cMD / MAX_VISUAL_AIM_LENGTH) * MAX_AIM_FORCE_DISPLAY;
     float vANX = 0, vANY = 0; if (rMD > 0.01f) { vANX = vAX / rMD; vANY = vAY / rMD; }
-    float aVEX = pCX + vANX * cMD, aVEY = pCY + vANY * cMD;
-    glColor3f(1.0f, 1.0f, 1.0f); glLineStipple(1, 0xAAAA); glEnable(GL_LINE_STIPPLE);
-    glBegin(GL_LINES); glVertex2f(pCX, pCY); glVertex2f(aVEX, aVEY); glEnd();
-    glDisable(GL_LINE_STIPPLE);
-    char magText[50]; sprintf(magText, "Forca: %.0f", aimDisplayForce); glColor3f(1.0f, 1.0f, 1.0f);
-    game_drawText(aVEX + 5, aVEY + 5, magText);
+
+    float forcePercent = cMD / MAX_VISUAL_AIM_LENGTH;
+    float aimPhysicsX = vANX * forcePercent * MAX_PULL_STRENGTH_PHYSICS;
+    float aimPhysicsY = vANY * forcePercent * MAX_PULL_STRENGTH_PHYSICS;
+    
+    if (!isHooked && !isHookFiring) {
+        // Rótulo da força de mira também no HUD, mas o vetor ainda é desenhado aqui
+        drawVector(pCX, pCY, aimPhysicsX, aimPhysicsY, VECTOR_VISUAL_SCALE, 1.0f, 1.0f, 1.0f, "");
+    }
 
     if (isHookFiring || isHooked) {
         float endX = isHookFiring ? hookProjectileX : hookPointX;
@@ -359,25 +464,10 @@ void game_display() {
         glBegin(GL_LINES); glVertex2f(pCX, pCY); glVertex2f(endX, endY); glEnd();
     }
     
-    drawVector(pCX, pCY, 0, GRAVITY, 0.2f, 0.2f, 1.0f, "P");
-    if (fabs(player.velocityX) > 0.01 || fabs(player.velocityY) > 0.01) {
-        float vX_vis = player.velocityX * VELOCITY_VISUAL_SCALE, vY_vis = player.velocityY * VELOCITY_VISUAL_SCALE;
-        float visMag = sqrt(vX_vis * vX_vis + vY_vis * vY_vis);
-        if (visMag > MAX_VISUAL_AIM_LENGTH) {
-            vX_vis = (vX_vis / visMag) * MAX_VISUAL_AIM_LENGTH;
-            vY_vis = (vY_vis / visMag) * MAX_VISUAL_AIM_LENGTH;
-        }
-        drawVector(pCX, pCY, vX_vis / VECTOR_VISUAL_SCALE, vY_vis / VECTOR_VISUAL_SCALE, 1.0f, 0.5f, 0.0f, "v");
-    }
-    if (isHooked) { drawVector(pCX, pCY, forceTensionX, forceTensionY, 1.0f, 0.0f, 1.0f, "T"); }
-    if (isGrounded) {
-        drawVector(pCX, player.y, 0, forceNormal, 0.0f, 1.0f, 1.0f, "N");
-        if (fabs(forceFriction) > 0.001f) {
-            drawVector(pCX, player.y + 10, forceFriction, 0, 1.0f, 0.0f, 0.0f, "Fat");
-        }
-    }
+    // NOVO: Chama o HUD de debug no canto superior direito
+    drawPhysicsDebugHUD();
 
-    drawGameHUD_Info();
+    // drawGameHUD_Info(); // Esta função não tem mais conteúdo por enquanto
 }
 
 // --- Funções de Input ---
@@ -425,11 +515,13 @@ void game_mouse_click(int button, int state) {
                 isHookFiring = true;
                 float pCX = player.x + player.w / 2, pCY = player.y + player.h / 2;
                 hookProjectileX = pCX; hookProjectileY = pCY;
+                
                 float vAX = mouseGameX - pCX, vAY = mouseGameY - pCY;
                 float rMD = sqrt(vAX * vAX + vAY * vAY);
                 float cMD = fmin(rMD, MAX_VISUAL_AIM_LENGTH);
                 float fP = cMD / MAX_VISUAL_AIM_LENGTH;
                 currentPullForce = fP * MAX_PULL_STRENGTH_PHYSICS;
+
                 if (rMD > 0.01f) {
                     hookProjectileVelX = (vAX / rMD) * HOOK_SPEED;
                     hookProjectileVelY = (vAY / rMD) * HOOK_SPEED;
@@ -437,8 +529,10 @@ void game_mouse_click(int button, int state) {
                     hookProjectileVelX = 0; hookProjectileVelY = HOOK_SPEED;
                 }
             }
-        } else if (state == GLUT_UP) {
-            isHooked = false; isHookFiring = false;
+        } 
+        else if (state == GLUT_UP) {
+            isHooked = false; 
+            isHookFiring = false;
         }
     }
 }
