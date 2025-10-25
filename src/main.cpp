@@ -2,6 +2,7 @@
 #include <GL/freeglut.h>
 #include "menu.h" // Interface do Menu
 #include "game.h" // Interface do Jogo
+#include "utils.h"
 
 // --- Constantes Globais ---
 const int NUM_MENU_BUTTONS = 3;
@@ -93,7 +94,7 @@ void display() {
         case STATE_INSTRUCTIONS: renderInstructions(); break;
         case STATE_LEVEL_SELECT: renderLevelSelect(); break;
         case STATE_GAME:
-            game_display();
+            gameDisplay();
             drawGameHUD();
             glutSwapBuffers();
             break;
@@ -141,7 +142,7 @@ void reshape(int w, int h) {
     if (h == 0) h = 1;
 
     if (currentState == STATE_GAME) {
-        game_reshape(w, h);
+        gameReshape(w, h);
     } else {
         glViewport(0, 0, w, h);
         glMatrixMode(GL_PROJECTION);
@@ -157,7 +158,7 @@ void reshape(int w, int h) {
 // Callback de movimento do mouse (hover E mira)
 void mouseMotion(int x, int y) {
     if (currentState == STATE_GAME) {
-        game_mouse_motion(x, y); // Passa o mouse para o jogo (mira)
+        gameMouseMotion(x, y); // Passa o mouse para o jogo (mira)
         gameBackButton.hovered = (x >= gameBackButton.x && x <= gameBackButton.x + gameBackButton.w &&
                                   y >= gameBackButton.y && y <= gameBackButton.y + gameBackButton.h);
     } 
@@ -197,7 +198,7 @@ void mouseClick(int button, int state, int x, int y) {
                 reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
             } else {
                 // Se não foi o botão "Voltar", passa o clique para o jogo
-                game_mouse_click(button, state);
+                gameMouseClick(button, state);
             }
         } 
         // Lógica de clique dos menus (só no clique "para baixo")
@@ -219,7 +220,7 @@ void mouseClick(int button, int state, int x, int y) {
                     if (levelButtons[i].hovered && levelButtons[i].enabled) {
                         activeLevel = i + 1;
                         currentState = STATE_GAME;
-                        game_start_level(activeLevel);
+                        gameStartLevel(activeLevel);
                         glutTimerFunc(16, timer, 0); // Inicia o loop de jogo
                         break;
                     }
@@ -241,7 +242,7 @@ void mouseClick(int button, int state, int x, int y) {
 
 void keyboard_down(unsigned char key, int x, int y) {
     if (currentState == STATE_GAME) {
-        GameAction action = game_key_down(key, x, y);
+        GameAction action = gameKeyDown(key, x, y);
         if (action == GAME_ACTION_EXIT_TO_MENU) {
             currentState = STATE_LEVEL_SELECT;
             reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
@@ -252,19 +253,19 @@ void keyboard_down(unsigned char key, int x, int y) {
 
 void keyboard_up(unsigned char key, int x, int y) {
     if (currentState == STATE_GAME) {
-        game_key_up(key, x, y);
+        gameKeyUp(key, x, y);
     }
 }
 
 void special_down(int key, int x, int y) {
     if (currentState == STATE_GAME) {
-        game_special_down(key, x, y);
+        gameSpecialDown(key, x, y);
     }
 }
 
 void special_up(int key, int x, int y) {
     if (currentState == STATE_GAME) {
-        game_special_up(key, x, y);
+        gameSpecialUp(key, x, y);
     }
 }
 
@@ -274,7 +275,7 @@ void timer(int value) {
         return; // Para o loop se sairmos do jogo
     }
 
-    GameAction action = game_update(); // Roda a física
+    GameAction action = gameUpdate(); // Roda a física
 
     if (action == GAME_ACTION_LEVEL_WON) {
         if (activeLevel == maxLevelUnlocked && maxLevelUnlocked < NUM_LEVELS) {
@@ -314,7 +315,7 @@ void init() {
     gameBackButton = {0, 0, 100, 35, "Voltar", false, true};
     
     updateAllButtonPositions(INITIAL_WIN_WIDTH, INITIAL_WIN_HEIGHT);
-    game_init(); // Inicializa o módulo do jogo
+    gameInit(); // Inicializa o módulo do jogo
 }
 
 // --- Main ---

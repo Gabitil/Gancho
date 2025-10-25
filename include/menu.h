@@ -1,9 +1,16 @@
+/**
+ * Assim como ensinado pelo professor, todos os scripts desse trabalho "exceto a main"
+ * possuem um "header" com as assinaturas das funções e as variáveis que serão usadas. 
+ * "Structs" para os elementos e variáveis globais. Também usamos a ideia de #ifndef
+ * e #define assim como explicado em sala.
+ * Todas as funções estão explicadas detalhadamente no script principal ".cpp"
+ */
+
 #ifndef MENU_H
 #define MENU_H
 
 #include <GL/freeglut.h>
 
-// Enum para as opções do menu principal
 enum MenuOption {
     NONE,
     START_GAME,
@@ -11,20 +18,15 @@ enum MenuOption {
     EXIT_GAME
 };
 
-// Estrutura do Botão, com estado 'enabled'
 struct Button {
     float x, y, w, h;
     const char* label;
     bool hovered;
-    bool enabled; // Para o sistema de destravar fases
+    bool enabled;
 };
 
-// Funções públicas do módulo de menu
 void drawButton(const Button& btn);
 void renderMenu(Button buttons[], int count);
 MenuOption handleMenuInput(int x, int y, Button buttons[], int count);
-
-// Protótipo da função de desenhar texto
-void drawText(float x, float y, const char* text);
 
 #endif
