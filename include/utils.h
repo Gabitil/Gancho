@@ -17,3 +17,5 @@ bool lineRectIntersection(float x1, float y1, float x2, float y2, const Platform
 void clipLineToView(float startX, float startY, float& endX, float& endY, float VIEW_WIDTH, float VIEW_HEIGHT, float cameraLeft, float cameraBottom);
 void drawVector(float initX, float initY, float vX_physics, float vY_physics, float scale,
                   float r, float g, float b, const char* vectorName);
+bool checkRectangleCollision(float x1, float y1, float w1, float h1, 
+                        float x2, float y2, float w2, float h2);

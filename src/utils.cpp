@@ -181,3 +181,26 @@ void drawVector(float initX, float initY, float vX_physics, float vY_physics, fl
     glColor3f(1.0f, 1.0f, 1.0f); // Branco
     drawText(endX + 5, endY + 5, vectorName, GLUT_BITMAP_9_BY_15);
 }
+
+/**
+ * Função para verificar a colisão entre dois retângulos. Ela usa a lógica de "não colisão"
+ * por questões de eficiência e, caso não seja detectada nenhuma das condicionais, uma colisão 
+ * é detectada
+ */
+bool checkRectangleCollision(float x1, float y1, float w1, float h1, 
+                        float x2, float y2, float w2, float h2) {
+    if (x1 > x2 + w2) {
+        return false;
+    }
+    if (x1 + w1 < x2) {
+        return false;
+    }
+    if (y1 > y2 + h2) {
+        return false;
+    }
+    if (y1 + h1 < y2) {
+        return false;
+    }
+
+    return true;
+}
