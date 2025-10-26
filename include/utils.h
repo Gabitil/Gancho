@@ -19,3 +19,4 @@ void drawVector(float initX, float initY, float vX_physics, float vY_physics, fl
                   float r, float g, float b, const char* vectorName);
 bool checkRectangleCollision(float x1, float y1, float w1, float h1, 
                         float x2, float y2, float w2, float h2);
+void drawTextCentered(float cx, float y, const char* text, void* font);

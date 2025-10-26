@@ -61,6 +61,7 @@ struct LevelParameters {
     float hookSpeed;
     float maxPullStrengthPhysics;
     float vectorVisualScale;
+    int maxShots;
 };
 
 LevelParameters levelParameters;
@@ -89,6 +90,13 @@ float forceTensionY = 0; // Variável para controlar a posição Y da força de 
  */
 float lastVelocityMag = 0.0f;
 float currentAcceleration = 0.0f;
+
+/**
+ * Controle de tiros e de game over
+ */
+int shotsRemaining = 0;
+bool isGameOver = false;
+int gameOverTimer = 0;
 
 /**
  * Como parte dos requisitos técnicos, os elementos estáticos das fases serão 
@@ -180,7 +188,8 @@ void gameStartLevel(int level) {
             levelParameters.hookSpeed = 25.0f;
             levelParameters.maxPullStrengthPhysics = 0.4f;
             levelParameters.vectorVisualScale = MAX_VISUAL_AIM_LENGTH / levelParameters.maxPullStrengthPhysics;
-
+            levelParameters.maxShots = 5;
+            
             platforms.push_back({0, 0, WORLD_WIDTH, 40, 0.2f, 0.6f, 0.2f, true, 0.8f}); 
             platforms.push_back({500, 400, 300, 40, 0.4f, 0.4f, 0.4f, true, 0.1f});
             windZones.push_back({800, 40, 100, 300, 0.0f, 0.05f});
@@ -189,10 +198,10 @@ void gameStartLevel(int level) {
             
             player = {50, platforms[0].h, 40, PLAYER_HEIGHT, 0.9f, 0.1f, 0.1f, 0, 0};
             door = {WORLD_WIDTH - 200, platforms[0].h, 30, 80, 0.5f, 0.3f, 0.0f};
-
+            
             break;
-
-        case 2:
+            
+            case 2:
             levelParameters.gravity = -0.07f; 
             levelParameters.playerMass = 8.0f;
             levelParameters.playerWalkAccel = 0.12f;
@@ -202,7 +211,8 @@ void gameStartLevel(int level) {
             levelParameters.hookSpeed = 30.0f;
             levelParameters.maxPullStrengthPhysics = 0.3f;
             levelParameters.vectorVisualScale = MAX_VISUAL_AIM_LENGTH / levelParameters.maxPullStrengthPhysics;
-
+            levelParameters.maxShots = 3;
+            
             platforms.push_back({0, 0, WORLD_WIDTH, 40, 0.1f, 0.1f, 0.8f, true, 0.5f});
             platforms.push_back({300, 200, 150, 30, 0.5f, 0.5f, 0.5f, true, 0.1f});
             platforms.push_back({600, 350, 150, 30, 0.5f, 0.5f, 0.5f, true, 0.1f});
@@ -216,6 +226,7 @@ void gameStartLevel(int level) {
             
         case 3:
             gameStartLevel(1);
+            return;
             
         default:
             gameStartLevel(1);
@@ -236,6 +247,8 @@ void gameStartLevel(int level) {
     isPressingRight = false;
     lastVelocityMag = 0.0f;
     currentAcceleration = 0.0f;
+    isGameOver = false;
+    shotsRemaining = levelParameters.maxShots;
 
     for (int i = 0; i < breakableWalls.size(); i++) {
         breakableWalls[i].isBroken = false;
@@ -257,6 +270,15 @@ void gameReshape(int width, int height) {
  * e de como o personagem interage com os objetos.
  */
 GameAction gameUpdate() {
+
+    if (isGameOver) {
+        gameOverTimer--;
+        if (gameOverTimer <= 0) {
+            isGameOver = false;
+            return GAME_ACTION_LEVEL_LOST;
+        }
+        return GAME_ACTION_CONTINUE;
+    }
     
     // --------------------------------------- Cálculos de velocidade -------------------------------------------------
     
@@ -354,9 +376,10 @@ GameAction gameUpdate() {
      * a seguinte verificação visa encerrar o game com derrota caso os limites estabelecidos sejam ultrapassados
      */
     if (player.x < -player.w || player.x > WORLD_WIDTH || player.y < DEATH_BOUNDARY_Y) {
-        return GAME_ACTION_LEVEL_LOST;
+        isGameOver = true;
+        gameOverTimer = 180; // Aproximadamente 3 segundos a 60 FPS
+        return GAME_ACTION_CONTINUE;
     }
-    
     
     /**
      * Verificação da colisão com os espinhos (ainda por meio de colisão de retângulos)
@@ -365,7 +388,10 @@ GameAction gameUpdate() {
         SpikeZone* spikeZone = &spikeZones[i];
         if (checkRectangleCollision(player.x, player.y, player.w, player.h, 
                                     spikeZone->x, spikeZone->y, spikeZone->w, spikeZone->h)){
-            return GAME_ACTION_LEVEL_LOST;
+                                                isGameOver = true;
+            isGameOver = true;
+            gameOverTimer = 180; // Aproximadamente 3 segundos a 60 FPS
+            return GAME_ACTION_CONTINUE;
         }
     }
     
@@ -516,6 +542,12 @@ GameAction gameUpdate() {
     currentAcceleration = currentVelocityMag - lastVelocityMag;
     lastVelocityMag = currentVelocityMag;
 
+    if (shotsRemaining < 0 && !isGameOver) {
+         isGameOver = true;
+         gameOverTimer = 180;
+         return GAME_ACTION_CONTINUE;
+    }
+
     /**
      * Condição de vitória: Caso o personagem alcançe a porta
      */
@@ -601,7 +633,6 @@ void drawPhysicsDebugHUD() {
 
     drawRect(blockPositionX, blockPositionY, blockWidth, blockHeight, 0.0f, 0.0f, 0.0f, 0.7f);
 
-    // Desenha o texto do HUD
     float currentYForWrite = blockPositionY + padding + 10;
     for (const auto& line : infoLines) {
         float xPositionOfText = blockPositionX + padding;
@@ -609,6 +640,61 @@ void drawPhysicsDebugHUD() {
         drawText(xPositionOfText, currentYForWrite, line.c_str(), GLUT_BITMAP_9_BY_15);
         currentYForWrite += lineHeight;
     }
+
+    glMatrixMode(GL_PROJECTION); 
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW); 
+    glPopMatrix();
+}
+
+/**
+ * Função responsável por desenhar a tela de game over
+ */
+void drawGameOverScreen() {
+    glMatrixMode(GL_PROJECTION); 
+    glPushMatrix(); 
+    glLoadIdentity();
+    gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT), 0);
+    glMatrixMode(GL_MODELVIEW); 
+    glPushMatrix(); 
+    glLoadIdentity();
+
+    drawRect(0, 0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT), 0.0f, 0.0f, 0.0f, 0.5f);
+
+    glColor3f(1.0f, 0.0f, 0.0f); // Vermelho
+    const char* gameOverText = "GAME OVER";
+    drawTextCentered(glutGet(GLUT_WINDOW_WIDTH) / 2.0f, glutGet(GLUT_WINDOW_HEIGHT) / 2.0f, gameOverText, GLUT_BITMAP_TIMES_ROMAN_24);
+
+    glMatrixMode(GL_PROJECTION); glPopMatrix();
+    glMatrixMode(GL_MODELVIEW); glPopMatrix();
+}
+
+/**
+ * Essa função é responsável por desenhar o HUD de quantidade de disparos
+ */
+void drawShotCounterHUD() {
+    glMatrixMode(GL_PROJECTION); 
+    glPushMatrix(); 
+    glLoadIdentity();
+    gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT), 0);
+    glMatrixMode(GL_MODELVIEW); 
+    glPushMatrix(); 
+    glLoadIdentity();
+
+    char shotText[50];
+    sprintf(shotText, "Disparos: %d / %d", shotsRemaining >= 0 ? shotsRemaining : 0, levelParameters.maxShots);
+
+    float textWidth = getTextWidth(shotText, GLUT_BITMAP_9_BY_15);
+    float padding = 8.0f;
+    float blockWidth = textWidth + 2 * padding;
+    float blockHeight = 15.0f + 2 * padding; 
+    float blockX = glutGet(GLUT_WINDOW_WIDTH) / 2.0f - blockWidth / 2.0f;
+    float blockY = 10.0f; 
+
+    drawRect(blockX, blockY, blockWidth, blockHeight, 0.0f, 0.0f, 0.0f, 0.7f);
+
+    glColor3f(1.0f, 1.0f, 1.0f);
+    drawTextCentered(glutGet(GLUT_WINDOW_WIDTH) / 2.0f, blockY + padding + 10, shotText, GLUT_BITMAP_9_BY_15);
 
     glMatrixMode(GL_PROJECTION); 
     glPopMatrix();
@@ -626,97 +712,105 @@ void gameDisplay() {
     glClearColor(0.5f, 0.7f, 1.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    cameraLeft = player.x + player.w / 2 - VIEW_WIDTH / 2;
-    if (cameraLeft < 0) cameraLeft = 0;
-    if (cameraLeft + VIEW_WIDTH > WORLD_WIDTH) cameraLeft = WORLD_WIDTH - VIEW_WIDTH;
-    cameraBottom = 0;
+    if (!isGameOver){
 
-    glMatrixMode(GL_PROJECTION); 
-    glLoadIdentity();
-    gluOrtho2D(cameraLeft, cameraLeft + VIEW_WIDTH, cameraBottom, cameraBottom + VIEW_HEIGHT);
-    glMatrixMode(GL_MODELVIEW); 
-    glLoadIdentity();
+        cameraLeft = player.x + player.w / 2 - VIEW_WIDTH / 2;
+        if (cameraLeft < 0) cameraLeft = 0;
+        if (cameraLeft + VIEW_WIDTH > WORLD_WIDTH) cameraLeft = WORLD_WIDTH - VIEW_WIDTH;
+        cameraBottom = 0;
 
-    /**
-     * Desenho de todos os elementos estáticos da fase
-     */
-    glCallList(platformListID);
-    glCallList(windZoneListID);
-    glCallList(spikeListID);
-    glCallList(doorListID);
+        glMatrixMode(GL_PROJECTION); 
+        glLoadIdentity();
+        gluOrtho2D(cameraLeft, cameraLeft + VIEW_WIDTH, cameraBottom, cameraBottom + VIEW_HEIGHT);
+        glMatrixMode(GL_MODELVIEW); 
+        glLoadIdentity();
 
-    /**
-     * As paredes quebráveis não são elementos estáticos pois podem desaparecer da fase
-     */
-    for (int i = 0; i < breakableWalls.size(); i++) {
-        BreakableWall* breakableWall = &breakableWalls[i];
-        if (!breakableWall->isBroken) {
-            glPushMatrix();
-                glTranslatef(breakableWall->x, breakableWall->y, 0.0f);
-                drawRect(0, 0, breakableWall->w, breakableWall->h, breakableWall->r, breakableWall->g, breakableWall->b);
+        /**
+         * Desenho de todos os elementos estáticos da fase
+         */
+        glCallList(platformListID);
+        glCallList(windZoneListID);
+        glCallList(spikeListID);
+        glCallList(doorListID);
 
-                glColor3f(1.0f, 1.0f, 1.0f);
-                char strengthText[50];
-                sprintf(strengthText, "Força: %.0f N", breakableWall->strength);
+        /**
+         * As paredes quebráveis não são elementos estáticos pois podem desaparecer da fase
+         */
+        for (int i = 0; i < breakableWalls.size(); i++) {
+            BreakableWall* breakableWall = &breakableWalls[i];
+            if (!breakableWall->isBroken) {
+                glPushMatrix();
+                    glTranslatef(breakableWall->x, breakableWall->y, 0.0f);
+                    drawRect(0, 0, breakableWall->w, breakableWall->h, breakableWall->r, breakableWall->g, breakableWall->b);
 
-                int textWidth = getTextWidth(strengthText, GLUT_BITMAP_9_BY_15);
-                drawText(breakableWall->w / 2 - textWidth / 2, breakableWall->h / 2 + 5, strengthText, GLUT_BITMAP_9_BY_15); // Ajuste Y
-            glPopMatrix();
-        }
-    }
-    
-    float playerCenterX = player.x + player.w / 2, playerCenterY = player.y + player.h / 2;
+                    glColor3f(1.0f, 1.0f, 1.0f);
+                    char strengthText[50];
+                    sprintf(strengthText, "Força: %.0f N", breakableWall->strength);
 
-    glPushMatrix();
-        glTranslatef(playerCenterX, playerCenterY, 0.0f);
-        
-        drawRect(-player.w / 2, -player.h / 2, player.w, player.h, player.r, player.g, player.b);
-
-        drawVector(0, 0, 0, levelParameters.gravity, levelParameters.vectorVisualScale, 0.2f, 0.2f, 1.0f, "P");
-        
-        float velMag = sqrt(player.velocityX * player.velocityX + player.velocityY * player.velocityY);
-        if (velMag > 0.01) {
-            drawVector(0, 0, player.velocityX, player.velocityY, VELOCITY_VISUAL_SCALE, 1.0f, 0.5f, 0.0f, "V");
-        }
-        if (isHooked) {
-            drawVector(0, 0, forceTensionX, forceTensionY, levelParameters.vectorVisualScale, 1.0f, 0.0f, 1.0f, "T");
-        }
-        if (isGrounded) {
-            drawVector(0, -player.h/2, 0, forceNormal, levelParameters.vectorVisualScale, 0.0f, 1.0f, 1.0f, "N");
-            if (fabs(forceFriction) > 0.001f) {
-                drawVector(0, -player.h/2 + 5, forceFriction, 0, levelParameters.vectorVisualScale, 1.0f, 0.0f, 0.0f, "Fat");
+                    int textWidth = getTextWidth(strengthText, GLUT_BITMAP_9_BY_15);
+                    drawText(breakableWall->w / 2 - textWidth / 2, breakableWall->h / 2 + 5, strengthText, GLUT_BITMAP_9_BY_15); // Ajuste Y
+                glPopMatrix();
             }
         }
-    
-    glPopMatrix();
+        
+        float playerCenterX = player.x + player.w / 2, playerCenterY = player.y + player.h / 2;
 
-    float vAX = mouseGameX - playerCenterX, vAY = mouseGameY - playerCenterY;
-    float rMD = sqrt(vAX * vAX + vAY * vAY);
-    float cMD = fmin(rMD, MAX_VISUAL_AIM_LENGTH);
-    aimDisplayForce = (cMD / MAX_VISUAL_AIM_LENGTH) * MAX_AIM_FORCE_DISPLAY;
-    float vANX = 0, vANY = 0; if (rMD > 0.01f) { vANX = vAX / rMD; vANY = vAY / rMD; }
+        glPushMatrix();
+            glTranslatef(playerCenterX, playerCenterY, 0.0f);
+            
+            drawRect(-player.w / 2, -player.h / 2, player.w, player.h, player.r, player.g, player.b);
 
-    float forcePercent = cMD / MAX_VISUAL_AIM_LENGTH;
-    float aimPhysicsX = vANX * forcePercent * levelParameters.maxPullStrengthPhysics;
-    float aimPhysicsY = vANY * forcePercent * levelParameters.maxPullStrengthPhysics;
-    
-    if (!isHooked && !isHookFiring) {
-        char magText[50];
-        sprintf(magText, "Forca: %.0f", aimDisplayForce);
-        drawVector(playerCenterX, playerCenterY, aimPhysicsX, aimPhysicsY, levelParameters.vectorVisualScale, 1.0f, 1.0f, 1.0f, magText); 
-    }
+            drawVector(0, 0, 0, levelParameters.gravity, levelParameters.vectorVisualScale, 0.2f, 0.2f, 1.0f, "P");
+            
+            float velMag = sqrt(player.velocityX * player.velocityX + player.velocityY * player.velocityY);
+            if (velMag > 0.01) {
+                drawVector(0, 0, player.velocityX, player.velocityY, VELOCITY_VISUAL_SCALE, 1.0f, 0.5f, 0.0f, "V");
+            }
+            if (isHooked) {
+                drawVector(0, 0, forceTensionX, forceTensionY, levelParameters.vectorVisualScale, 1.0f, 0.0f, 1.0f, "T");
+            }
+            if (isGrounded) {
+                drawVector(0, -player.h/2, 0, forceNormal, levelParameters.vectorVisualScale, 0.0f, 1.0f, 1.0f, "N");
+                if (fabs(forceFriction) > 0.001f) {
+                    drawVector(0, -player.h/2 + 5, forceFriction, 0, levelParameters.vectorVisualScale, 1.0f, 0.0f, 0.0f, "Fat");
+                }
+            }
+        
+        glPopMatrix();
 
-    if (isHookFiring || isHooked) {
-        float endX = isHookFiring ? hookProjectileX : hookPointX;
-        float endY = isHookFiring ? hookProjectileY : hookPointY;
-        if (endX < cameraLeft || endX > cameraLeft + VIEW_WIDTH || endY < cameraBottom || endY > cameraBottom + VIEW_HEIGHT) {
-            clipLineToView(playerCenterX, playerCenterY, endX, endY, VIEW_WIDTH, VIEW_HEIGHT, cameraLeft, cameraBottom);
+        float vAX = mouseGameX - playerCenterX, vAY = mouseGameY - playerCenterY;
+        float rMD = sqrt(vAX * vAX + vAY * vAY);
+        float cMD = fmin(rMD, MAX_VISUAL_AIM_LENGTH);
+        aimDisplayForce = (cMD / MAX_VISUAL_AIM_LENGTH) * MAX_AIM_FORCE_DISPLAY;
+        float vANX = 0, vANY = 0; if (rMD > 0.01f) { vANX = vAX / rMD; vANY = vAY / rMD; }
+
+        float forcePercent = cMD / MAX_VISUAL_AIM_LENGTH;
+        float aimPhysicsX = vANX * forcePercent * levelParameters.maxPullStrengthPhysics;
+        float aimPhysicsY = vANY * forcePercent * levelParameters.maxPullStrengthPhysics;
+        
+        if (!isHooked && !isHookFiring) {
+            char magText[50];
+            sprintf(magText, "Forca: %.0f", aimDisplayForce);
+            drawVector(playerCenterX, playerCenterY, aimPhysicsX, aimPhysicsY, levelParameters.vectorVisualScale, 1.0f, 1.0f, 1.0f, magText); 
         }
-        glColor3f(0.8f, 0.8f, 0.8f);
-        glBegin(GL_LINES); glVertex2f(playerCenterX, playerCenterY); glVertex2f(endX, endY); glEnd();
+
+        if (isHookFiring || isHooked) {
+            float endX = isHookFiring ? hookProjectileX : hookPointX;
+            float endY = isHookFiring ? hookProjectileY : hookPointY;
+            if (endX < cameraLeft || endX > cameraLeft + VIEW_WIDTH || endY < cameraBottom || endY > cameraBottom + VIEW_HEIGHT) {
+                clipLineToView(playerCenterX, playerCenterY, endX, endY, VIEW_WIDTH, VIEW_HEIGHT, cameraLeft, cameraBottom);
+            }
+            glColor3f(0.8f, 0.8f, 0.8f);
+            glBegin(GL_LINES); glVertex2f(playerCenterX, playerCenterY); glVertex2f(endX, endY); glEnd();
+        }
     }
-    
-    drawPhysicsDebugHUD();
+
+    drawPhysicsDebugHUD(); 
+    drawShotCounterHUD(); 
+
+    if (isGameOver) {
+        drawGameOverScreen();
+    }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
@@ -728,6 +822,7 @@ void gameDisplay() {
  */
 
 GameAction gameKeyDown(unsigned char key, int x, int y) {
+    if (isGameOver) return GAME_ACTION_CONTINUE;
     switch (key) {
         case 'q': case 'Q': return GAME_ACTION_EXIT_TO_MENU;
         case 'a': case 'A': isPressingLeft = true; break;
@@ -737,6 +832,7 @@ GameAction gameKeyDown(unsigned char key, int x, int y) {
 }
 
 void gameKeyUp(unsigned char key, int x, int y) {
+    if (isGameOver) return;
     switch (key) {
         case 'a': case 'A': isPressingLeft = false; break;
         case 'd': case 'D': isPressingRight = false; break;
@@ -744,6 +840,7 @@ void gameKeyUp(unsigned char key, int x, int y) {
 }
 
 void gameSpecialDown(int key, int x, int y) {
+    if (isGameOver) return;
     switch (key) {
         case GLUT_KEY_LEFT: isPressingLeft = true; break;
         case GLUT_KEY_RIGHT: isPressingRight = true; break;
@@ -751,6 +848,7 @@ void gameSpecialDown(int key, int x, int y) {
 }
 
 void gameSpecialUp(int key, int x, int y) {
+    if (isGameOver) return;
     switch (key) {
         case GLUT_KEY_LEFT: isPressingLeft = false; break;
         case GLUT_KEY_RIGHT: isPressingRight = false; break;
@@ -758,6 +856,7 @@ void gameSpecialUp(int key, int x, int y) {
 }
 
 void gameMouseMotion(int x, int y) {
+    if (isGameOver) return;
     int winW = glutGet(GLUT_WINDOW_WIDTH), winH = glutGet(GLUT_WINDOW_HEIGHT);
     if (winW == 0) winW = 1; if (winH == 0) winH = 1;
     mouseGameX = cameraLeft + (float)x / winW * VIEW_WIDTH;
@@ -765,10 +864,12 @@ void gameMouseMotion(int x, int y) {
 }
 
 void gameMouseClick(int button, int state) {
+    if (isGameOver) return;
     if (button == GLUT_LEFT_BUTTON) {
         if (state == GLUT_DOWN) {
-            if (!isHooked && !isHookFiring) {
+            if (shotsRemaining > 0 && !isHooked && !isHookFiring) {
                 isHookFiring = true;
+                shotsRemaining--;
                 float playerCenterX = player.x + player.w / 2, playerCenterY = player.y + player.h / 2;
                 hookProjectileX = playerCenterX; hookProjectileY = playerCenterY;
                 

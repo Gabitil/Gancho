@@ -204,3 +204,8 @@ bool checkRectangleCollision(float x1, float y1, float w1, float h1,
 
     return true;
 }
+
+void drawTextCentered(float cx, float y, const char* text, void* font) {
+    int textWidth = getTextWidth(text, font);
+    drawText(cx - textWidth / 2.0f, y, text, font);
+}
