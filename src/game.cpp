@@ -19,29 +19,8 @@
 // ----------------------------------------------------------------------------------------------------------------
 
 /**
- * Para padronização dos cálculos e dos valores de vetores e deslocamentos, todas as constantes
- * usadas são fixas. Constantes padrões da física.
- */
-const float GRAVITY = -0.1f; // Aceleração vertical (negativa = para baixo)
-const float PLAYER_MASS = 10.0f; // Massa do jogador (para cálculos de força)
-const float PLAYER_WALK_ACCEL = 0.1f; // Aceleração horizontal aplicada ao caminhar
-const float MAX_WALK_SPEED = 3.0f; // Velocidade máxima permitida enquanto "no chão"
-const float DAMPING_FACTOR = 0.99f; // Fator de amortecimento aplicado quando pendurado
-
-/**
- * Constantes relacionadas ao gancho
- */
-const float HOOK_SPEED = 25.0f;
-const float MAX_PULL_STRENGTH_PHYSICS = 0.4f;
-
-/**
- * Limitador de velocidade do personagem para garantir melhor visibilidade ao jogador dos 
- * vetores e das ações ao decorrer do game
- */
-const float MAX_PLAYER_SPEED = 30.0f;
-
-/**
  * Constantes usadas na definição de mundo e para visualização (câmera, espaço para desenhos, etc)
+ * Estas são fixas e não mudam por fase.
  */
 const float PLAYER_HEIGHT = 40.0f;
 const float VIEW_WIDTH = 800.0f;
@@ -51,14 +30,10 @@ const float WORLD_HEIGHT = 600.0f;
 const float DEATH_BOUNDARY_Y = -100.0f; // Constante usada para verificar se o personagem "caiu", limitador para sua queda
 
 /**
- * Os vetores seguem uma escala padrão para que a coerência da visualização seja válida ao jogador. 
- * Para isso, o valor máximo do vetor de lançamento do "grappling hook" será de 100N e o seu tamanho será de 
- * 5x o tamanho do personagem. A partir daí todos os outros vetores serão calculados a fim de manter a proporção de 
- * tamanho e ajudar a dimensionar, para o jogador, a força real de cada força aplicada.
+ * Constantes visuais.
  */
 const float MAX_VISUAL_AIM_LENGTH = 5.0f * PLAYER_HEIGHT;
 const float MAX_AIM_FORCE_DISPLAY = 100.0f;
-const float VECTOR_VISUAL_SCALE = MAX_VISUAL_AIM_LENGTH / MAX_PULL_STRENGTH_PHYSICS;
 const float VELOCITY_VISUAL_SCALE = 7.0f;
 const float WIND_VECTOR_VISUAL_SCALE = 500.0f;
 
@@ -66,21 +41,29 @@ const float WIND_VECTOR_VISUAL_SCALE = 500.0f;
 
 /**
  * Definição das variáveis que serão usadas no game.
- * Aqui também definimos o limite de quantidade de cada elemento. Essas 
- * quantidades serão usadas de forma variada de acordo com a fase.
  */
 GameObject player;
 GameObject door;
-Platform platforms[10];
-int numPlatforms = 0;
 Platform* collidingPlatform = NULL;
 
-WindZone windZones[10];
-int numWindZones = 0;
-BreakableWall breakableWalls[10];
-int numBreakableWalls = 0;
-SpikeZone spikeZones[10];
-int numSpikeZones = 0;
+std::vector<Platform> platforms;
+std::vector<WindZone> windZones;
+std::vector<BreakableWall> breakableWalls;
+std::vector<SpikeZone> spikeZones;
+
+struct LevelParameters {
+    float gravity;
+    float playerMass;
+    float playerWalkAccel;
+    float maxWalkSpeed;
+    float maxPlayerSpeed;
+    float dampingFactor;
+    float hookSpeed;
+    float maxPullStrengthPhysics;
+    float vectorVisualScale;
+};
+
+LevelParameters levelParameters;
 
 int CURRENT_LEVEL = 1; // Variável de controle do level atual
 bool isGrounded = false; // Variável para verificar se o personagem está em contato com alguma plataforma
@@ -103,57 +86,162 @@ float forceTensionY = 0; // Variável para controlar a posição Y da força de 
 
 /**
  * Variáveis para controle da aceleração do personagem. 
- * Usada nos cálculos usando a velocidade. No sistema escolhido, não é uma aceleração
- * que define a velocidade, mas sim a velocidade fixada que define uma aceleração.
- * Desse modo fica mais simples de coordenar todos os movimentos e fazer os cálculos do game.
  */
 float lastVelocityMag = 0.0f;
 float currentAcceleration = 0.0f;
 
+/**
+ * Como parte dos requisitos técnicos, os elementos estáticos das fases serão 
+ * renderizados em listas de apresentação para fins de otimização das operações
+ */
+GLuint platformListID = 0;
+GLuint doorListID = 0;
+GLuint spikeListID = 0;
+GLuint windZoneListID = 0;
+
 // ----------------------------------------------------------------------------------------------------------------
 
-/**
- * Função para inicializar a quantidade de elementos de mundo, suas posições e outros parâmetros.
- * TODO - Variar a quantidade de elementos e as suas posições de acordo com as fases
- */
-void gameInit() {
-    // Plataformas
-    numPlatforms = 2;
-    platforms[0] = {0, 0, WORLD_WIDTH, 40, 0.2f, 0.6f, 0.2f, true, 0.8f};
-    platforms[1] = {500, 400, 300, 40, 0.4f, 0.4f, 0.4f, true, 0.1f}; 
-    
-    // Correntes de Vento
-    numWindZones = 1;
-    windZones[0] = {800, 40, 100, 300, 0.0f, 0.05f};
-    
-    // Paredes Quebráveis
-    numBreakableWalls = 1;
-    breakableWalls[0] = {1200, 40, 40, 150, 0.6f, 0.4f, 0.2f, 20.0f, false};
-    
-    // Espinhos
-    numSpikeZones = 1;
-    spikeZones[0] = {1500, 40, 200, 20, 1.0f, 0.0f, 0.0f};
+void createDisplayLists() {
+    if (platformListID != 0) glDeleteLists(platformListID, 1);
+    if (windZoneListID != 0) glDeleteLists(windZoneListID, 1);
+    if (spikeListID != 0)    glDeleteLists(spikeListID, 1);
+    if (doorListID != 0)     glDeleteLists(doorListID, 1);
+
+    platformListID = glGenLists(1);
+    windZoneListID = glGenLists(1);
+    spikeListID = glGenLists(1);
+    doorListID = glGenLists(1);
+
+    glNewList(platformListID, GL_COMPILE);
+        for (int i = 0; i < platforms.size(); i++) {
+            Platform* platform = &platforms[i];
+            glPushMatrix();
+                glTranslatef(platform->x, platform->y, 0.0f);
+                drawRect(0, 0, platform->w, platform->h, platform->r, platform->g, platform->b);
+                glColor3f(1.0, 1.0, 1.0);
+                drawText(20, 15, ("mu_" + std::to_string(i + 1)).c_str());
+            glPopMatrix();
+        }
+    glEndList();
+
+    glNewList(windZoneListID, GL_COMPILE);
+        for (int i = 0; i < windZones.size(); i++) {
+            WindZone* windZone = &windZones[i];
+            glPushMatrix();
+                glTranslatef(windZone->x, windZone->y, 0.0f);
+                drawRect(0, 0, windZone->w, windZone->h, 1.0f, 1.0f, 1.0f, 0.2f);
+
+                float windMag = sqrt(windZone->accelX * windZone->accelX + windZone->accelY * windZone->accelY);
+                if (windMag > 0.001f) {
+                    char windLabel[50];
+                    sprintf(windLabel, "Corrente de Vento: %.2f N", windMag * levelParameters.playerMass);
+                    drawVector(windZone->w / 2, windZone->h / 2, windZone->accelX, windZone->accelY, WIND_VECTOR_VISUAL_SCALE, 0.0f, 0.8f, 1.0f, windLabel);
+                }
+            glPopMatrix();
+        }
+    glEndList();
+
+    glNewList(spikeListID, GL_COMPILE);
+        for (int i = 0; i < spikeZones.size(); i++) {
+            SpikeZone* spikeZone = &spikeZones[i];
+            drawSpikes(spikeZone->x, spikeZone->y, spikeZone->w, spikeZone->h, spikeZone->r, spikeZone->g, spikeZone->b);
+        }
+    glEndList();
+
+    glNewList(doorListID, GL_COMPILE);
+        glPushMatrix();
+            glTranslatef(door.x, door.y, 0.0f);
+            drawRect(0, 0, door.w, door.h, door.r, door.g, door.b);
+        glPopMatrix();
+    glEndList();
 }
 
 /**
- * Essa função é responsável por reiniciar todas as variáveis de controle dos níveis para que todos os 
- * obstáculos/elementos fiquem ativos e prontos para a interação do personagem
+ * Essa função é responsável por limpar todos os elementos da fase anterior e estruturar a nova fase,
+ * incluindo seus parâmetros de física e movimentação do personagem.
  */
 void gameStartLevel(int level) {
-    player = {50, platforms[0].h, 40, PLAYER_HEIGHT, 0.9f, 0.1f, 0.1f, 0, 0};
-    door = {WORLD_WIDTH - 200, platforms[0].h, 30, 80, 0.5f, 0.3f, 0.0f};
-    isGrounded = true; 
+    
+    platforms.clear();
+    windZones.clear();
+    breakableWalls.clear();
+    spikeZones.clear();
+
+    CURRENT_LEVEL = level;
+
+    switch (level) {
+        case 1:
+            levelParameters.gravity = -0.1f;
+            levelParameters.playerMass = 10.0f;
+            levelParameters.playerWalkAccel = 0.1f;
+            levelParameters.maxWalkSpeed = 3.0f;
+            levelParameters.maxPlayerSpeed = 30.0f;
+            levelParameters.dampingFactor = 0.99f;
+            levelParameters.hookSpeed = 25.0f;
+            levelParameters.maxPullStrengthPhysics = 0.4f;
+            levelParameters.vectorVisualScale = MAX_VISUAL_AIM_LENGTH / levelParameters.maxPullStrengthPhysics;
+
+            platforms.push_back({0, 0, WORLD_WIDTH, 40, 0.2f, 0.6f, 0.2f, true, 0.8f}); 
+            platforms.push_back({500, 400, 300, 40, 0.4f, 0.4f, 0.4f, true, 0.1f});
+            windZones.push_back({800, 40, 100, 300, 0.0f, 0.05f});
+            breakableWalls.push_back({1200, 40, 40, 150, 0.6f, 0.4f, 0.2f, 20.0f, false});
+            spikeZones.push_back({1500, 40, 200, 20, 1.0f, 0.0f, 0.0f});
+            
+            player = {50, platforms[0].h, 40, PLAYER_HEIGHT, 0.9f, 0.1f, 0.1f, 0, 0};
+            door = {WORLD_WIDTH - 200, platforms[0].h, 30, 80, 0.5f, 0.3f, 0.0f};
+
+            break;
+
+        case 2:
+            levelParameters.gravity = -0.07f; 
+            levelParameters.playerMass = 8.0f;
+            levelParameters.playerWalkAccel = 0.12f;
+            levelParameters.maxWalkSpeed = 4.0f;
+            levelParameters.maxPlayerSpeed = 35.0f;
+            levelParameters.dampingFactor = 0.995f;
+            levelParameters.hookSpeed = 30.0f;
+            levelParameters.maxPullStrengthPhysics = 0.3f;
+            levelParameters.vectorVisualScale = MAX_VISUAL_AIM_LENGTH / levelParameters.maxPullStrengthPhysics;
+
+            platforms.push_back({0, 0, WORLD_WIDTH, 40, 0.1f, 0.1f, 0.8f, true, 0.5f});
+            platforms.push_back({300, 200, 150, 30, 0.5f, 0.5f, 0.5f, true, 0.1f});
+            platforms.push_back({600, 350, 150, 30, 0.5f, 0.5f, 0.5f, true, 0.1f});
+            breakableWalls.push_back({1000, 40, 30, 100, 0.6f, 0.4f, 0.2f, 10.0f, false});
+            spikeZones.push_back({300, 40, 500, 20, 1.0f, 0.0f, 0.0f});
+
+            player = {100, platforms[0].h, 40, PLAYER_HEIGHT, 0.9f, 0.1f, 0.1f, 0, 0};
+            door = {WORLD_WIDTH - 150, platforms[0].h, 30, 80, 0.5f, 0.3f, 0.0f};
+            
+            break;
+            
+        case 3:
+            gameStartLevel(1);
+            
+        default:
+            gameStartLevel(1);
+            return;
+    }
+
+    if (!platforms.empty()) {
+        collidingPlatform = &platforms[0];
+        isGrounded = true; 
+    } else {
+        collidingPlatform = NULL;
+        isGrounded = false;
+    }
+    
     isHooked = false; 
     isHookFiring = false;
-    collidingPlatform = &platforms[0]; 
     isPressingLeft = false; 
     isPressingRight = false;
     lastVelocityMag = 0.0f;
     currentAcceleration = 0.0f;
 
-    for (int i = 0; i < numBreakableWalls; i++) {
+    for (int i = 0; i < breakableWalls.size(); i++) {
         breakableWalls[i].isBroken = false;
     }
+
+    createDisplayLists();
 }
 
 /**
@@ -172,24 +260,21 @@ GameAction gameUpdate() {
     
     // --------------------------------------- Cálculos de velocidade -------------------------------------------------
     
-    // Variáveis para controle da posição e velocidade anterior do personagem antes da atualização da próxima cena
     float prevPositionPlayerX = player.x;
     float prevPositionPlayerY = player.y;
-    float prevVelocityX = player.velocityX;
-    float prevVelocityY = player.velocityY;
 
     forceNormal = 0; 
     forceFriction = 0; 
     forceTensionX = 0; 
     forceTensionY = 0;
-    float playerAccelerationX = 0, playerAccelerationY = GRAVITY;
+    float playerAccelerationX = 0, playerAccelerationY = levelParameters.gravity; 
     
     /**
      * A força de vento aplica uma aceleração extra ao personagem ao entrar dentro da zona definida. 
      * Para isso, é usada a função de verificação de colisão de pontos e, além disso, a aceleração incrementada
      * ao personagem é definida pela força da zona de vento
      */
-    for (int i = 0; i < numWindZones; i++) {
+    for (int i = 0; i < windZones.size(); i++) {
         WindZone* windZone = &windZones[i];
         if (isPointInside(player.x + player.w / 2, player.y + player.h / 2, windZone->x, windZone->y, windZone->w, windZone->h)) {
             playerAccelerationX += windZone->accelX;
@@ -217,25 +302,22 @@ GameAction gameUpdate() {
      * Movimentação do personagem (definida pela constante de aceleração ao andar) no chão.
      */
     if (isGrounded) {
-        if (isPressingLeft) playerAccelerationX -= PLAYER_WALK_ACCEL;
-        if (isPressingRight) playerAccelerationX += PLAYER_WALK_ACCEL;
+        if (isPressingLeft) playerAccelerationX -= levelParameters.playerWalkAccel;
+        if (isPressingRight) playerAccelerationX += levelParameters.playerWalkAccel;
         
-        /* Ao entrar em contato com alguma plataforma, a sua aceleração é afetada pela quantidade de atrito 
-        * existente. Esse atrito, pela fórmula da física, é a força normal multiplicada pelo coeficiente de atrito.
-        */ 
        if (collidingPlatform){
-           forceNormal = -GRAVITY;
+           forceNormal = -levelParameters.gravity;
            float frictionAccel = collidingPlatform->frictionCoefficient * forceNormal;
            if (fabs(player.velocityX + playerAccelerationX) < frictionAccel) {
                player.velocityX = 0; playerAccelerationX = 0; forceFriction = 0;
-            } else {
-                if (player.velocityX > 0) { 
-                    playerAccelerationX -= frictionAccel; forceFriction = -frictionAccel; 
-                } else if (player.velocityX < 0) { 
-                    playerAccelerationX += frictionAccel; forceFriction = frictionAccel; 
-                }
-            }
-        }
+           } else {
+               if (player.velocityX > 0) { 
+                   playerAccelerationX -= frictionAccel; forceFriction = -frictionAccel; 
+               } else if (player.velocityX < 0) { 
+                   playerAccelerationX += frictionAccel; forceFriction = frictionAccel; 
+               }
+           }
+       }
         
     }
     
@@ -248,10 +330,9 @@ GameAction gameUpdate() {
     
     /**
      * Caso esteja no chão, o personagem não pode acelerar indefinidamente. Portanto, sua velocidade final calculada
-     * é verificada para que não ultrapasse o valor máximo permitido para a fase
      */
-    if (isGrounded && fabs(player.velocityX) > MAX_WALK_SPEED) {
-        player.velocityX = (player.velocityX > 0) ? MAX_WALK_SPEED : -MAX_WALK_SPEED;
+    if (isGrounded && fabs(player.velocityX) > levelParameters.maxWalkSpeed) {
+        player.velocityX = (player.velocityX > 0) ? levelParameters.maxWalkSpeed : -levelParameters.maxWalkSpeed;
     }
     
     /**
@@ -259,9 +340,9 @@ GameAction gameUpdate() {
      * educativa do game.
      */
     float speed = sqrt(player.velocityX * player.velocityX + player.velocityY * player.velocityY);
-    if (speed > MAX_PLAYER_SPEED) {
-        player.velocityX = (player.velocityX / speed) * MAX_PLAYER_SPEED;
-        player.velocityY = (player.velocityY / speed) * MAX_PLAYER_SPEED;
+    if (speed > levelParameters.maxPlayerSpeed) {
+        player.velocityX = (player.velocityX / speed) * levelParameters.maxPlayerSpeed;
+        player.velocityY = (player.velocityY / speed) * levelParameters.maxPlayerSpeed;
     }
     
     player.x += player.velocityX; player.y += player.velocityY;
@@ -276,28 +357,29 @@ GameAction gameUpdate() {
         return GAME_ACTION_LEVEL_LOST;
     }
     
+    
     /**
      * Verificação da colisão com os espinhos (ainda por meio de colisão de retângulos)
      */
-    for (int i = 0; i < numSpikeZones; i++) {
+    for (int i = 0; i < spikeZones.size(); i++) {
         SpikeZone* spikeZone = &spikeZones[i];
         if (checkRectangleCollision(player.x, player.y, player.w, player.h, 
-                               spikeZone->x, spikeZone->y, spikeZone->w, spikeZone->h)){
+                                    spikeZone->x, spikeZone->y, spikeZone->w, spikeZone->h)){
             return GAME_ACTION_LEVEL_LOST;
         }
     }
-
+    
     /**
      * Para o cálculo das paredes quebráveis, além de gerar uma colisão, ela também deve afetar a velocidade
      * final do personagem (a sua velocidade deve sofrer interferência da força por ele deixada ao colidir com 
      * a parede). Portanto, essa função visa verificar a colisão e, além disso, alterar a velocidade do personagem
      */
-    for (int i = 0; i < numBreakableWalls; i++) {
+    for (int i = 0; i < breakableWalls.size(); i++) {
         BreakableWall* breakableWall = &breakableWalls[i];
         if (breakableWall->isBroken) continue;
 
         if (checkRectangleCollision(player.x, player.y, player.w, player.h, 
-                               breakableWall->x, breakableWall->y, breakableWall->w, breakableWall->h)) {
+                                    breakableWall->x, breakableWall->y, breakableWall->w, breakableWall->h)) {
 
             float impactVelX = player.velocityX;
             float impactVelY = player.velocityY;
@@ -306,13 +388,13 @@ GameAction gameUpdate() {
             /**
              * Pela lei de Newton, a força F aplicada em algo é a massa vezes a sua velocidade
              */
-            float impactForce = PLAYER_MASS * impactSpeed;
+            float impactForce = levelParameters.playerMass * impactSpeed;
 
-            if (impactForce >= breakableWall->strength) { // Quebra a parede se a força for suficiente
+            if (impactForce >= breakableWall->strength) { // Quebra a parede
                 breakableWall->isBroken = true;
-                // Reduz um pouco a velocidade do jogador ao quebrar
                 player.velocityX *= 0.7f; 
                 player.velocityY *= 0.7f;
+
             /**
              * Caso a força não seja suficiente para atravessar a parede, o personagem deve parar na posição imediatamente anterior
              * antes da colisão (posição do frame anterior)
@@ -322,20 +404,18 @@ GameAction gameUpdate() {
                 player.y = prevPositionPlayerY;
                 player.velocityX = 0;
                 player.velocityY = 0;
-                
             }
         }
     }
 
-    // Colisão com Plataformas
+    /**
+     * Caso o personagem colida com alguma plataforma, ele deve se desprender imediatamente
+     */
     isGrounded = false; collidingPlatform = NULL;
-    for (int i = 0; i < numPlatforms; i++) {
+    for (int i = 0; i < platforms.size(); i++) {
         Platform* platform = &platforms[i];
-        /**
-         * Caso o personagem colida com alguma plataforma, ele deve se desprender imediatamente
-         */
         if (checkRectangleCollision(player.x, player.y, player.w, player.h, 
-                                    platform->x, platform->y, platform->w, platform->h)) {
+                                      platform->x, platform->y, platform->w, platform->h)) {
             
             /**
              * Caso colida com alguma plataforma, a seguinte verificação serve para tratar os casos de colisão superior e colisão inferior, pois, 
@@ -349,7 +429,7 @@ GameAction gameUpdate() {
                 player.y = platform->y + platform->h; 
                 isGrounded = true; 
                 collidingPlatform = platform;
-                forceNormal = -GRAVITY - (player.velocityY * 0.5f);
+                forceNormal = -levelParameters.gravity - (player.velocityY * 0.5f);
                 player.velocityY = 0; 
                 if (isHooked) isHooked = false;
             }
@@ -358,60 +438,38 @@ GameAction gameUpdate() {
 
     /**
      * A seguinte verificação visa implementar a lógica de velocidade do personagem ao se prender com o gancho. 
-     * Dada a complexidade das operações, buscamos a implementação dessa física e pedimos uma explicação detalhada 
-     * do funcionamento do algorítmo.
+     * Dada a complexidade das operações, buscamos a implementação dessa física para o cálculo das posições.
      */
     if (isHooked) {
-    // 1. Encontrar o centro do jogador
-    float playerCenterX = player.x + player.w / 2;
-    float playerCenterY = player.y + player.h / 2;
+        float playerCenterX = player.x + player.w / 2;
+        float playerCenterY = player.y + player.h / 2;
+        float vectorToHookX = hookPointX - playerCenterX;
+        float vectorToHookY = hookPointY - playerCenterY;
+        float currentDistance = sqrt(vectorToHookX * vectorToHookX + vectorToHookY * vectorToHookY);
 
-    // 2. Calcular o vetor do jogador ATÉ o ponto do gancho
-    float vectorToHookX = hookPointX - playerCenterX;
-    float vectorToHookY = hookPointY - playerCenterY;
-
-    // 3. Calcular a distância atual até o gancho (magnitude do vetor)
-    float currentDistance = sqrt(vectorToHookX * vectorToHookX + vectorToHookY * vectorToHookY);
-
-    // 4. Lógica de Restrição da Corda (Física do Pêndulo)
-    // Se a distância atual for maior que o comprimento da corda (ou seja, a corda está esticada)
-    if (currentDistance > ropeLength && currentDistance > 0.01f) {
-        
-        // 4a. Calcular o quanto a corda esticou além do seu comprimento
-        float stretchAmount = currentDistance - ropeLength;
-
-        // 4b. Calcular a direção normalizada (vetor unitário) da corda
-        float normalizedDirectionX = vectorToHookX / currentDistance;
-        float normalizedDirectionY = vectorToHookY / currentDistance;
-
-        // 4c. Corrigir a posição do jogador
-        // "Teleporta" o jogador de volta para a ponta da corda, removendo o excesso (stretchAmount)
-        player.x += normalizedDirectionX * stretchAmount;
-        player.y += normalizedDirectionY * stretchAmount;
-
-        // 4d. Corrigir a velocidade do jogador (a parte mais importante do pêndulo)
-        // Calcula o "produto escalar" da velocidade atual com a direção da corda.
-        // Isso nos diz quanta da velocidade do jogador está se movendo "para fora", esticando a corda.
-        float velocityAlongRope = player.velocityX * normalizedDirectionX + player.velocityY * normalizedDirectionY;
-
-        // Se o jogador estiver se movendo para longe do gancho (esticando a corda)...
-        if (velocityAlongRope > 0) { 
-            // ...remove essa componente da velocidade.
-            // Isso faz o jogador "quicar" na ponta da corda e começar o balanço.
-            player.velocityX -= normalizedDirectionX * velocityAlongRope; 
-            player.velocityY -= normalizedDirectionY * velocityAlongRope; 
+        if (currentDistance > ropeLength && currentDistance > 0.01f) {
+            float stretchAmount = currentDistance - ropeLength;
+            float normalizedDirectionX = vectorToHookX / currentDistance;
+            float normalizedDirectionY = vectorToHookY / currentDistance;
+            
+            player.x += normalizedDirectionX * stretchAmount;
+            player.y += normalizedDirectionY * stretchAmount;
+            
+            float velocityAlongRope = player.velocityX * normalizedDirectionX + player.velocityY * normalizedDirectionY;
+            if (velocityAlongRope > 0) { 
+                player.velocityX -= normalizedDirectionX * velocityAlongRope; 
+                player.velocityY -= normalizedDirectionY * velocityAlongRope; 
+            }
         }
-    }
 
-    // 5. Aplicar Amortecimento (Damping)
-    // Reduz lentamente a velocidade para que o balanço pare eventualmente
-    player.velocityX *= DAMPING_FACTOR; 
-    player.velocityY *= DAMPING_FACTOR;
-    
-    // 6. Atualizar Estado
-    // Se está pendurado no gancho, não pode estar no chão
-    isGrounded = false;
-}
+        /**
+         * Reduz lentamente a velocidade para que o balanço pare eventualmente (damping)
+         */
+        player.velocityX *= levelParameters.dampingFactor; 
+        player.velocityY *= levelParameters.dampingFactor;
+        
+        isGrounded = false;
+    }
 
     /**
      * Essa função verifica se o gancho está em modo de disparo (sendo lançado) e, caso sim, verifica o ponto 
@@ -423,10 +481,10 @@ GameAction gameUpdate() {
         hookProjectileX += hookProjectileVelX; hookProjectileY += hookProjectileVelY;
         
         bool hit = false;
-        for (int i = 0; i < numPlatforms; i++) {
+        for (int i = 0; i < platforms.size(); i++) {
             Platform* p = &platforms[i];
             float hitX, hitY;
-            // Gancho não prende em atrito 0
+            // Para simular um comportamento físico, o gancho não se prende em atrito 0
             if (p->isHookable && p->frictionCoefficient > 0.0f && lineRectIntersection(prevHookX, prevHookY, hookProjectileX, hookProjectileY, *p, hitX, hitY)) {
                 isHookFiring = false; 
                 isHooked = true;
@@ -462,10 +520,10 @@ GameAction gameUpdate() {
      * Condição de vitória: Caso o personagem alcançe a porta
      */
     if (checkRectangleCollision(player.x, player.y, player.w, player.h, 
-                                door.x, door.y, door.w, door.h)) {
+                                  door.x, door.y, door.w, door.h)) {
         return GAME_ACTION_LEVEL_WON;
     }
-
+    
     /**
      * Caso nenhuma das condições seja atendida nas verificações dessa função, o game deve apenas continuar o fluxo comum e passar para a próxima cena
      */
@@ -503,23 +561,23 @@ void drawPhysicsDebugHUD() {
     
     sprintf(buffer, "a: %.2f m/s^2", currentAcceleration); infoLines.push_back(buffer);
 
-    sprintf(buffer, "P: %.2f N", GRAVITY * PLAYER_MASS); infoLines.push_back(buffer);
+    sprintf(buffer, "P: %.2f N", levelParameters.gravity * levelParameters.playerMass); infoLines.push_back(buffer);
     
     if (isGrounded) {
-        sprintf(buffer, "N: %.2f N", forceNormal * PLAYER_MASS); infoLines.push_back(buffer);
+        sprintf(buffer, "N: %.2f N", forceNormal * levelParameters.playerMass); infoLines.push_back(buffer);
         if (fabs(forceFriction) > 0.001f) {
-            sprintf(buffer, "Fat: %.2f N", fabs(forceFriction) * PLAYER_MASS); infoLines.push_back(buffer); 
+            sprintf(buffer, "Fat: %.2f N", fabs(forceFriction) * levelParameters.playerMass); infoLines.push_back(buffer); 
         }
     }
     if (isHooked) {
-        sprintf(buffer, "T: %.2f N", currentPullForce * PLAYER_MASS); infoLines.push_back(buffer);
+        sprintf(buffer, "T: %.2f N", currentPullForce * levelParameters.playerMass); infoLines.push_back(buffer);
     }
     
     /**
      * Para mais fins de otimização dos valores e limpeza da tela, as constantes de coeficiente de atrito só aparecem 
      * caso a plataforma esteja visível na tela
      */
-    for (int i = 0; i < numPlatforms; ++i) {
+    for (int i = 0; i < platforms.size(); ++i) {
         Platform* platform = &platforms[i];
         if (platform->x < cameraLeft + VIEW_WIDTH && platform->x + platform->w > cameraLeft) {
             sprintf(buffer, "mu_%d: %.2f", i + 1, platform->frictionCoefficient);
@@ -541,13 +599,13 @@ void drawPhysicsDebugHUD() {
     float blockPositionX = glutGet(GLUT_WINDOW_WIDTH) - margin - blockWidth;
     float blockPositionY = margin;
 
-    drawRect(blockPositionX, blockPositionY, blockWidth, blockHeight, 0.0f, 0.0f, 0.0f, 0.7f); // Retângulo preto
+    drawRect(blockPositionX, blockPositionY, blockWidth, blockHeight, 0.0f, 0.0f, 0.0f, 0.7f);
 
+    // Desenha o texto do HUD
     float currentYForWrite = blockPositionY + padding + 10;
     for (const auto& line : infoLines) {
         float xPositionOfText = blockPositionX + padding;
-        
-        glColor3f(1.0f, 1.0f, 1.0f); // Texto branco (para contrastar bem com o bloco desenhado)
+        glColor3f(1.0f, 1.0f, 1.0f);
         drawText(xPositionOfText, currentYForWrite, line.c_str(), GLUT_BITMAP_9_BY_15);
         currentYForWrite += lineHeight;
     }
@@ -579,60 +637,33 @@ void gameDisplay() {
     glMatrixMode(GL_MODELVIEW); 
     glLoadIdentity();
 
-    for (int i = 0; i < numPlatforms; i++) {
-        Platform* platform = &platforms[i];
-        glPushMatrix();
-            glTranslatef(platform->x, platform->y, 0.0f);
-            drawRect(0, 0, platform->w, platform->h, platform->r, platform->g, platform->b);
-            glColor3f(1.0, 1.0, 1.0);
-            drawText(20, 15, ("mu_" + std::to_string(i + 1)).c_str());
-        glPopMatrix();
-    }
-    
-    for (int i = 0; i < numWindZones; i++) {
-        WindZone* windZone = &windZones[i];
-        glPushMatrix();
-            glTranslatef(windZone->x, windZone->y, 0.0f);
-            drawRect(0, 0, windZone->w, windZone->h, 1.0f, 1.0f, 1.0f, 0.2f); // Retângulo branco quase transparente
+    /**
+     * Desenho de todos os elementos estáticos da fase
+     */
+    glCallList(platformListID);
+    glCallList(windZoneListID);
+    glCallList(spikeListID);
+    glCallList(doorListID);
 
-            /**
-             * Toda corrente de vento possui um vetor que indica o seu módulo, direção e sentido.
-             */
-            float windMag = sqrt(windZone->accelX * windZone->accelX + windZone->accelX * windZone->accelY);
-            if (windMag > 0.001f) {
-                char windLabel[50];
-                sprintf(windLabel, "Corrente de Vento: %.2f N", windMag * PLAYER_MASS);
-                drawVector(windZone->w / 2, windZone->h / 2, windZone->accelX, windZone->accelY, WIND_VECTOR_VISUAL_SCALE, 0.0f, 0.8f, 1.0f, windLabel);
-            }
-        glPopMatrix();
-    }
-    
-    for (int i = 0; i < numBreakableWalls; i++) {
+    /**
+     * As paredes quebráveis não são elementos estáticos pois podem desaparecer da fase
+     */
+    for (int i = 0; i < breakableWalls.size(); i++) {
         BreakableWall* breakableWall = &breakableWalls[i];
         if (!breakableWall->isBroken) {
             glPushMatrix();
                 glTranslatef(breakableWall->x, breakableWall->y, 0.0f);
                 drawRect(0, 0, breakableWall->w, breakableWall->h, breakableWall->r, breakableWall->g, breakableWall->b);
-                
+
                 glColor3f(1.0f, 1.0f, 1.0f);
                 char strengthText[50];
                 sprintf(strengthText, "Força: %.0f N", breakableWall->strength);
-                
+
                 int textWidth = getTextWidth(strengthText, GLUT_BITMAP_9_BY_15);
-                drawText(breakableWall->w / 2 - textWidth / 2, breakableWall->h / 2, strengthText, GLUT_BITMAP_9_BY_15);
+                drawText(breakableWall->w / 2 - textWidth / 2, breakableWall->h / 2 + 5, strengthText, GLUT_BITMAP_9_BY_15); // Ajuste Y
             glPopMatrix();
         }
     }
-    
-    for (int i = 0; i < numSpikeZones; i++) {
-        SpikeZone* spikeZone = &spikeZones[i];
-        drawSpikes(spikeZone->x, spikeZone->y, spikeZone->w, spikeZone->h, spikeZone->r, spikeZone->g, spikeZone->b);
-    }
-    
-    glPushMatrix();
-        glTranslatef(door.x, door.y, 0.0f);
-        drawRect(0, 0, door.w, door.h, door.r, door.g, door.b);
-    glPopMatrix();
     
     float playerCenterX = player.x + player.w / 2, playerCenterY = player.y + player.h / 2;
 
@@ -641,18 +672,19 @@ void gameDisplay() {
         
         drawRect(-player.w / 2, -player.h / 2, player.w, player.h, player.r, player.g, player.b);
 
-        drawVector(0, 0, 0, GRAVITY, VECTOR_VISUAL_SCALE, 0.2f, 0.2f, 1.0f, "P");
+        drawVector(0, 0, 0, levelParameters.gravity, levelParameters.vectorVisualScale, 0.2f, 0.2f, 1.0f, "P");
+        
         float velMag = sqrt(player.velocityX * player.velocityX + player.velocityY * player.velocityY);
         if (velMag > 0.01) {
             drawVector(0, 0, player.velocityX, player.velocityY, VELOCITY_VISUAL_SCALE, 1.0f, 0.5f, 0.0f, "V");
         }
         if (isHooked) {
-            drawVector(0, 0, forceTensionX, forceTensionY, VECTOR_VISUAL_SCALE, 1.0f, 0.0f, 1.0f, "T");
+            drawVector(0, 0, forceTensionX, forceTensionY, levelParameters.vectorVisualScale, 1.0f, 0.0f, 1.0f, "T");
         }
         if (isGrounded) {
-            drawVector(0, -player.h/2, 0, forceNormal, VECTOR_VISUAL_SCALE, 0.0f, 1.0f, 1.0f, "N");
+            drawVector(0, -player.h/2, 0, forceNormal, levelParameters.vectorVisualScale, 0.0f, 1.0f, 1.0f, "N");
             if (fabs(forceFriction) > 0.001f) {
-                drawVector(0, -player.h/2 + 5, forceFriction, 0, VECTOR_VISUAL_SCALE, 1.0f, 0.0f, 0.0f, "Fat");
+                drawVector(0, -player.h/2 + 5, forceFriction, 0, levelParameters.vectorVisualScale, 1.0f, 0.0f, 0.0f, "Fat");
             }
         }
     
@@ -665,13 +697,13 @@ void gameDisplay() {
     float vANX = 0, vANY = 0; if (rMD > 0.01f) { vANX = vAX / rMD; vANY = vAY / rMD; }
 
     float forcePercent = cMD / MAX_VISUAL_AIM_LENGTH;
-    float aimPhysicsX = vANX * forcePercent * MAX_PULL_STRENGTH_PHYSICS;
-    float aimPhysicsY = vANY * forcePercent * MAX_PULL_STRENGTH_PHYSICS;
+    float aimPhysicsX = vANX * forcePercent * levelParameters.maxPullStrengthPhysics;
+    float aimPhysicsY = vANY * forcePercent * levelParameters.maxPullStrengthPhysics;
     
     if (!isHooked && !isHookFiring) {
         char magText[50];
         sprintf(magText, "Forca: %.0f", aimDisplayForce);
-        drawVector(playerCenterX, playerCenterY, aimPhysicsX, aimPhysicsY, VECTOR_VISUAL_SCALE, 1.0f, 1.0f, 1.0f, magText); 
+        drawVector(playerCenterX, playerCenterY, aimPhysicsX, aimPhysicsY, levelParameters.vectorVisualScale, 1.0f, 1.0f, 1.0f, magText); 
     }
 
     if (isHookFiring || isHooked) {
@@ -744,13 +776,15 @@ void gameMouseClick(int button, int state) {
                 float rMD = sqrt(vAX * vAX + vAY * vAY);
                 float cMD = fmin(rMD, MAX_VISUAL_AIM_LENGTH);
                 float fP = cMD / MAX_VISUAL_AIM_LENGTH;
-                currentPullForce = fP * MAX_PULL_STRENGTH_PHYSICS;
+                
+                currentPullForce = fP * levelParameters.maxPullStrengthPhysics;
 
                 if (rMD > 0.01f) {
-                    hookProjectileVelX = (vAX / rMD) * HOOK_SPEED;
-                    hookProjectileVelY = (vAY / rMD) * HOOK_SPEED;
+                    hookProjectileVelX = (vAX / rMD) * levelParameters.hookSpeed;
+                    hookProjectileVelY = (vAY / rMD) * levelParameters.hookSpeed;
                 } else {
-                    hookProjectileVelX = 0; hookProjectileVelY = HOOK_SPEED;
+                    hookProjectileVelX = 0;
+                    hookProjectileVelY = levelParameters.hookSpeed;
                 }
             }
         } 

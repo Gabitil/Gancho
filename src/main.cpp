@@ -343,7 +343,7 @@ void init() {
     gameBackButton = {0, 0, 100, 35, "Voltar", false, true};
     
     updateAllButtonPositions(INITIAL_WIN_WIDTH, INITIAL_WIN_HEIGHT);
-    gameInit();
+    gameStartLevel(activeLevel);
 }
 
 int main(int argc, char** argv) {

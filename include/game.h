@@ -53,7 +53,8 @@ struct SpikeZone {
 };
 
 
-void gameInit();
+void createDisplayLists();
+void gameStartLevel();
 void gameStartLevel(int level);
 GameAction gameUpdate();
 void gameDisplay();
