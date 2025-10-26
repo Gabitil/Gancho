@@ -4,18 +4,6 @@
 
 // ----------------------------------------------------------------------------------------------------------------
 
-// /**
-//  * Usando a função ensinada em sala para poder desenhar caracteres na tela a partir da ferramenta
-//  * de texto do freeGlut. Dessa forma, basta passar a posição do texto e o que deve ser escrito para que
-//  * seja possível desenhar na tela. Todos os textos, por padrão, usarão a mesma fonte
-//  */
-// void drawText(float x, float y, const char* text) {
-//     glRasterPos2f(x, y);
-//     for (const char* c = text; *c; ++c) {
-//         glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
-//     }
-// }
-
 /**
  * Os botões do jogo também serão padronizados. 
  * Para implementar o esquema de "mouse sobre o botão" solicitado nos requisitos técnicos

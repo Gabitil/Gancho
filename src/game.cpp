@@ -82,13 +82,13 @@ int numBreakableWalls = 0;
 SpikeZone spikeZones[10];
 int numSpikeZones = 0;
 
-int CURRENT_LEVEL = 1;
+int CURRENT_LEVEL = 1; // Variável de controle do level atual
 bool isGrounded = false; // Variável para verificar se o personagem está em contato com alguma plataforma
 bool isHooked = false; // Variável para identificar se o personagem está pendurado em alguma plataforma
 bool isHookFiring = false; // Variável para controlar se o gancho está em modo de disparo, ou seja, se ele está em trajetória para se prender em algo
 float hookPointX = 0, hookPointY = 0; // Variáveis para indicar em qual ponto de uma plataforma o personagem está preso
-float hookProjectileX = 0, hookProjectileY = 0;
-float hookProjectileVelX = 0, hookProjectileVelY = 0;
+float hookProjectileX = 0, hookProjectileY = 0; // Variáveis para controle das posições X e Y do projétil do gancho
+float hookProjectileVelX = 0, hookProjectileVelY = 0; // Variáveis para controle das velocidades em X e Y do projétil do gancho
 float ropeLength = 0;
 float currentPullForce = 0.0f;
 float mouseGameX = 0, mouseGameY = 0; // Variáveis para controlar as posições X e Y do mouse durante o game
@@ -323,25 +323,6 @@ GameAction gameUpdate() {
                 player.velocityX = 0;
                 player.velocityY = 0;
                 
-                // /**
-                //  * Controle complexo de velocidade. Como não é necessário zerar todas as velocidades do personagem (por exemplo, no caso de uma colisão
-                //  * superior, a velocidade em x não é alterada), então é feita uma verificação de cada colisão com a parede quebrável e os parãmetros do personagem
-                //  * são alterados de acordo com o verificado
-                //  */
-                // if (player.x + player.w > breakableWall->x && prevPositionPlayerX + player.w <= breakableWall->x) { // Colisão pela esquerda
-                //     player.velocityX = 0;
-                //     player.x = breakableWall->x - player.w;
-                // } else if (player.x < breakableWall->x + breakableWall->w && prevPositionPlayerX >= breakableWall->x + breakableWall->w) { // Colisão pela direita
-                //     player.velocityX = 0;
-                //     player.x = breakableWall->x + breakableWall->w;
-                // }
-                // if (player.y + player.h > breakableWall->y && prevPositionPlayerY + player.h <= breakableWall->y) { // Colisão por baixo
-                //     player.velocityY = 0;
-                //     player.y = breakableWall->y - player.h;
-                // } else if (player.y < breakableWall->y + breakableWall->h && prevPositionPlayerY >= breakableWall->y + breakableWall->h) { // Colisão por cima
-                //     player.velocityY = 0;
-                //     player.y = breakableWall->y + breakableWall->h;
-                // }
             }
         }
     }
