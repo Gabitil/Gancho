@@ -72,16 +72,16 @@
 
 ## 📁 Estrutura de Entrega
 
-- [ ] `Makefile` na **pasta raiz** (com cláusulas `compilar`, `executar`, `limpar`)
+- [X] `Makefile` na **pasta raiz** (com cláusulas `compilar`, `executar`, `limpar`)
 - [ ] **Códigos-fonte** na pasta raiz
 - [ ] Pasta **modelos/** com arquivos de modelos 2D
 - [ ] Pasta **imagens/** com arquivos `.png`
-- [ ] Arquivo `readme.txt` contendo:
+- [X] Arquivo `readme.txt` contendo:
 
-  - [ ] Nomes e matrículas do grupo
-  - [ ] Instruções de compilação e execução
-  - [ ] Observações para instalação de bibliotecas adicionais (Debian/Linux)
-  - [ ] Instruções de jogabilidade
+  - [X] Nomes e matrículas do grupo
+  - [X] Instruções de compilação e execução
+  - [X] Observações para instalação de bibliotecas adicionais (Debian/Linux)
+  - [X] Instruções de jogabilidade
   - [ ] Link do vídeo de gameplay
 - [ ] Compactar em **.zip** antes de enviar
 - [ ] ❗ **Não enviar executável nem arquivos desnecessários**
