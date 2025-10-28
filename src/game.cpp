@@ -718,11 +718,11 @@ GameAction gameUpdate() {
   currentAcceleration = currentVelocityMag - lastVelocityMag;
   lastVelocityMag = currentVelocityMag;
 
-  if (shotsRemaining <= 0 && !isGameOver) {
-    isGameOver = true;
-    gameOverTimer = 180;
-    return GAME_ACTION_CONTINUE;
-  }
+  // if (shotsRemaining <= 0 && !isGameOver) {
+  //   isGameOver = true;
+  //   gameOverTimer = 180;
+  //   return GAME_ACTION_CONTINUE;
+  // }
 
   /**
    * Condição de vitória: Caso o personagem alcançe a porta

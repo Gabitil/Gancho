@@ -120,7 +120,7 @@ void renderInstructions() {
                    texInstructionsBackground, false, false);  // Usa o ID da textura de fundo
   drawText(50, 80, "INSTRUCOES DE COMO JOGAR: ");
   drawText(50, 120,
-           "- Use 'A' e 'D' ou setas (<- ->) para andar no chao. Nao e' "
+           "- Use 'A' e 'D' ou setas (<- ->) para andar no chao. Nao e "
            "possivel pular");
   drawText(50, 150, "- Mire com o mouse para onde quer disparar o gancho");
   drawText(50, 180,
