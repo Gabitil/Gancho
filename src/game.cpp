@@ -237,11 +237,11 @@ void gameStartLevel(int level) {
 
       platforms.push_back(
           {0, 0, WORLD_WIDTH, 40, 0.2f, 0.6f, 0.2f, true, 0.8f});
-      platforms.push_back({500, 400, 300, 40, 0.4f, 0.4f, 0.4f, true, 0.1f});
+      platforms.push_back({500, 400, 300, 80, 0.4f, 0.4f, 0.4f, true, 0.1f});
       windZones.push_back({800, 40, 100, 300, 0.0f, 0.05f});
       breakableWalls.push_back(
           {1200, 40, 40, 150, 0.6f, 0.4f, 0.2f, 20.0f, false});
-      spikeZones.push_back({1500, 40, 200, 20, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({1500, 40, 200, 40, 1.0f, 0.0f, 0.0f});
 
       player = {50, platforms[0].h, 40, PLAYER_HEIGHT, 0.9f, 0.1f, 0.1f, 0, 0};
       door = {WORLD_WIDTH - 200, platforms[0].h, 50, 100, 0.5f, 0.3f, 0.0f};
@@ -263,11 +263,13 @@ void gameStartLevel(int level) {
 
       platforms.push_back(
           {0, 0, WORLD_WIDTH, 40, 0.1f, 0.1f, 0.8f, true, 0.5f});
-      platforms.push_back({300, 200, 150, 30, 0.5f, 0.5f, 0.5f, true, 0.1f});
-      platforms.push_back({600, 350, 150, 30, 0.5f, 0.5f, 0.5f, true, 0.1f});
+      platforms.push_back({300, 200, 250, 60, 0.5f, 0.5f, 0.5f, true, 0.1f});
+      platforms.push_back({600, 350, 250, 60, 0.5f, 0.5f, 0.5f, true, 0.1f});
+      platforms.push_back({1000, 350, 400, 60, 0.5f, 0.5f, 0.5f, true, 0.1f});
       breakableWalls.push_back(
           {1000, 40, 30, 100, 0.6f, 0.4f, 0.2f, 10.0f, false});
-      spikeZones.push_back({300, 40, 500, 20, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({300, 40, 300, 30, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({1300, 40, 300, 30, 1.0f, 0.0f, 0.0f});
 
       player = {100, platforms[0].h, 40, PLAYER_HEIGHT, 0.9f, 0.1f, 0.1f, 0, 0};
       door = {WORLD_WIDTH - 150, platforms[0].h, 50, 100, 0.5f, 0.3f, 0.0f};
@@ -275,8 +277,33 @@ void gameStartLevel(int level) {
       break;
 
     case 3:
-      gameStartLevel(1);
-      return;
+      levelParameters.gravity = -0.05f;
+      levelParameters.playerMass = 6.0f;
+      levelParameters.playerWalkAccel = 0.15f;
+      levelParameters.maxWalkSpeed = 5.0f;
+      levelParameters.maxPlayerSpeed = 40.0f;
+      levelParameters.dampingFactor = 0.998f;
+      levelParameters.hookSpeed = 35.0f;
+      levelParameters.maxPullStrengthPhysics = 0.25f;
+      levelParameters.vectorVisualScale =
+          MAX_VISUAL_AIM_LENGTH / levelParameters.maxPullStrengthPhysics;
+      levelParameters.maxShots = 2;
+      platforms.push_back(
+          {0, 0, WORLD_WIDTH, 40, 0.3f, 0.3f, 0.3f, true, 0.3f});
+      platforms.push_back({400, 250, 200, 50, 0.6f, 0.4f, 0.2f, true, 0.05f});
+      platforms.push_back({700, 400, 200, 50, 0.6f, 0.4f, 0.2f, true, 0.05f});
+      platforms.push_back({1100, 300, 300, 50, 0.6f, 0.4f, 0.2f, true, 0.05f});
+      platforms.push_back({2000, 450, 300, 50, 0.6f, 0.4f, 0.2f, true, 0.05f});
+      breakableWalls.push_back(
+          {1300, 40, 20, 120, 0.6f, 0.4f, 0.2f, 5.0f, false});
+      spikeZones.push_back({600, 40, 400, 30, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({1600, 40, 400, 30, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({2200, 40, 400, 30, 1.0f, 0.0f, 0.0f});
+      windZones.push_back({1800, 40, 150, 300, 0.0f, 0.08f});
+      windZones.push_back({2500, 40, 150, 300, 0.05f, 0.0f});
+      player = {150, platforms[0].h, 40, PLAYER_HEIGHT, 0.9f, 0.1f, 0.1f, 0, 0};
+      door = {WORLD_WIDTH - 100, platforms[0].h, 50, 100, 0.5f, 0.3f, 0.0f};
+      break;
 
     default:
       gameStartLevel(1);
