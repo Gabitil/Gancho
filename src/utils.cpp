@@ -1,6 +1,6 @@
 #define STB_IMAGE_IMPLEMENTATION
-#include <GL/freeglut.h>
 #include <GL/glew.h>
+#include <GL/freeglut.h>
 #include <GL/stb_image.h>
 
 #include <cstdio>
@@ -82,32 +82,107 @@ void drawRect(float initX, float initY, float width, float height, float r,
 }
 
 /**
- * Desenha um retângulo com uma textura aplicada.
- * Assume que as coordenadas (x, y) são o canto superior esquerdo (devido ao
- * gluOrtho2D em main.cpp).
+ * Desenha um retângulo usando uma textura, com repetição (tiling) de UVs.
+ * Isso é ideal para chão e plataformas.
  */
-void drawTexturedRect(float x, float y, float w, float h, GLuint textureID) {
-  if (textureID == 0) return;  // Não desenha se a textura não foi carregada
+void drawRepeatingTexturedRect(float x, float y, float w, float h,
+                               GLuint textureID, float textureWidth,
+                               float textureHeight) {
+  if (textureID == 0) {
+    // Fallback: se a textura falhou, desenha um retângulo cinza
+    glColor3f(0.5f, 0.5f, 0.5f);
+    glDisable(GL_TEXTURE_2D);
+    glBegin(GL_QUADS);
+    glVertex2f(x, y);
+    glVertex2f(x + w, y);
+    glVertex2f(x + w, y + h);
+    glVertex2f(x, y + h);
+    glEnd();
+    return;
+  }
+
+  // Calcula quantas vezes a textura deve se repetir
+  // textureWidth e textureHeight são as dimensões MUNDIAIS da textura base.
+  float uTiles = w / textureWidth;
+  float vTiles = h / textureHeight;
 
   glEnable(GL_TEXTURE_2D);
-  glEnable(GL_BLEND);  // Habilita transparência (para PNGs)
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-  // Usamos branco para não "tingir" a textura com outra cor
-  glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-
   glBindTexture(GL_TEXTURE_2D, textureID);
 
+  // Repetição (Tile)
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+  glColor3f(1.0f, 1.0f, 1.0f);  // Garante que a textura não seja colorizada
+
   glBegin(GL_QUADS);
-  // Coordenadas de Textura (0,0 é topo-esquerdo)
+  // Canto Inferior Esquerdo (UV: 0, 0)
   glTexCoord2f(0.0f, 0.0f);
-  glVertex2f(x, y);  // Canto Superior Esquerdo
-  glTexCoord2f(1.0f, 0.0f);
-  glVertex2f(x + w, y);  // Canto Superior Direito
-  glTexCoord2f(1.0f, 1.0f);
-  glVertex2f(x + w, y + h);  // Canto Inferior Direito
-  glTexCoord2f(0.0f, 1.0f);
-  glVertex2f(x, y + h);  // Canto Inferior Esquerdo
+  glVertex2f(x, y);
+
+  // Canto Inferior Direito (UV: uTiles, 0)
+  glTexCoord2f(uTiles, 0.0f);
+  glVertex2f(x + w, y);
+
+  // Canto Superior Direito (UV: uTiles, vTiles)
+  glTexCoord2f(uTiles, vTiles);
+  glVertex2f(x + w, y + h);
+
+  // Canto Superior Esquerdo (UV: 0, vTiles)
+  glTexCoord2f(0.0f, vTiles);
+  glVertex2f(x, y + h);
+  glEnd();
+
+  glDisable(GL_TEXTURE_2D);
+}
+
+/**
+ * Desenha um retângulo com uma textura aplicada, com opção de inverter
+ * horizontalmente (flipH) e verticalmente (flipV).
+ *
+ * flipV = true (padrão): Corrige para o sistema de coordenadas Y-Up (Mundo do
+ * Jogo). flipV = false: Mantém a orientação original da textura (Cordenadas de
+ * Tela/Menu Y-Down).
+ */
+void drawTexturedRect(float x, float y, float w, float h, GLuint textureID,
+                      bool flipH = false,
+                      bool flipV = true) {  // flipV = true é o novo padrão
+  if (textureID == 0) return;
+
+  glEnable(GL_TEXTURE_2D);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+  glBindTexture(GL_TEXTURE_2D, textureID);
+
+  // Coordenadas U (Horizontal)
+  float u0 = flipH ? 1.0f : 0.0f;
+  float u1 = flipH ? 0.0f : 1.0f;
+
+  // Coordenadas V (Vertical)
+  // Se flipV for true (Jogo Y-Up), V=1.0 vai para o topo (y) e V=0.0 vai para a
+  // base (y+h). Se flipV for false (Menu Y-Down), V=0.0 vai para o topo (y) e
+  // V=1.0 vai para a base (y+h).
+  float v_TOP_EDGE_MAPPED = flipV ? 1.0f : 0.0f;
+  float v_BOTTOM_EDGE_MAPPED = flipV ? 0.0f : 1.0f;
+
+  glBegin(GL_QUADS);
+
+  // Canto Superior Esquerdo (x, y)
+  glTexCoord2f(u0, v_TOP_EDGE_MAPPED);
+  glVertex2f(x, y);
+
+  // Canto Superior Direito (x + w, y)
+  glTexCoord2f(u1, v_TOP_EDGE_MAPPED);
+  glVertex2f(x + w, y);
+
+  // Canto Inferior Direito (x + w, y + h)
+  glTexCoord2f(u1, v_BOTTOM_EDGE_MAPPED);
+  glVertex2f(x + w, y + h);
+
+  // Canto Inferior Esquerdo (x, y + h)
+  glTexCoord2f(u0, v_BOTTOM_EDGE_MAPPED);
+  glVertex2f(x, y + h);
   glEnd();
 
   glDisable(GL_TEXTURE_2D);

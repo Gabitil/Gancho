@@ -31,5 +31,5 @@ bool checkRectangleCollision(float x1, float y1, float w1, float h1, float x2,
 void drawTextCentered(float cx, float y, const char* text, void* font);
 
 GLuint loadTexture(const char* filepath);
-
-void drawTexturedRect(float x, float y, float w, float h, GLuint textureID);
+void drawTexturedRect(float x, float y, float w, float h, GLuint textureID,
+                      bool flipH = false, bool flipV = true);

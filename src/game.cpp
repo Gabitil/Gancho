@@ -25,7 +25,7 @@
  * Constantes usadas na definição de mundo e para visualização (câmera, espaço
  * para desenhos, etc) Estas são fixas e não mudam por fase.
  */
-const float PLAYER_HEIGHT = 40.0f;
+const float PLAYER_HEIGHT = 80.0f;
 const float VIEW_WIDTH = 800.0f;
 const float VIEW_HEIGHT = 600.0f;
 const float WORLD_WIDTH = 3000.0f;
@@ -113,6 +113,9 @@ float forceTensionY =
     0;  // Variável para controlar a posição Y da força de tensão na corda
         // aplicada ao personagem e ao fio do grappling hook
 
+// Controle de animação do player
+bool isFacingRight = true;  // Direção que o player está olhando
+
 /**
  * Variáveis para controle da aceleração do personagem.
  */
@@ -125,6 +128,13 @@ float currentAcceleration = 0.0f;
 int shotsRemaining = 0;
 bool isGameOver = false;
 int gameOverTimer = 0;
+
+// Variáveis para controle da animação de corrida (Definições)
+float runAnimationTimer = 0.0f;
+int currentRunFrame = 0;
+
+// Variável para cálculo do Delta Time (tempo decorrido entre frames)
+static int lastTime = 0;  // Armazena o tempo da última atualização em ms
 
 /**
  * Como parte dos requisitos técnicos, os elementos estáticos das fases serão
@@ -234,7 +244,7 @@ void gameStartLevel(int level) {
       spikeZones.push_back({1500, 40, 200, 20, 1.0f, 0.0f, 0.0f});
 
       player = {50, platforms[0].h, 40, PLAYER_HEIGHT, 0.9f, 0.1f, 0.1f, 0, 0};
-      door = {WORLD_WIDTH - 200, platforms[0].h, 30, 80, 0.5f, 0.3f, 0.0f};
+      door = {WORLD_WIDTH - 200, platforms[0].h, 50, 100, 0.5f, 0.3f, 0.0f};
 
       break;
 
@@ -260,7 +270,7 @@ void gameStartLevel(int level) {
       spikeZones.push_back({300, 40, 500, 20, 1.0f, 0.0f, 0.0f});
 
       player = {100, platforms[0].h, 40, PLAYER_HEIGHT, 0.9f, 0.1f, 0.1f, 0, 0};
-      door = {WORLD_WIDTH - 150, platforms[0].h, 30, 80, 0.5f, 0.3f, 0.0f};
+      door = {WORLD_WIDTH - 150, platforms[0].h, 50, 100, 0.5f, 0.3f, 0.0f};
 
       break;
 
@@ -372,8 +382,14 @@ GameAction gameUpdate() {
    * no chão.
    */
   if (isGrounded) {
-    if (isPressingLeft) playerAccelerationX -= levelParameters.playerWalkAccel;
-    if (isPressingRight) playerAccelerationX += levelParameters.playerWalkAccel;
+    if (isPressingLeft) {
+      playerAccelerationX -= levelParameters.playerWalkAccel;
+      isFacingRight = false;
+    }
+    if (isPressingRight) {
+      playerAccelerationX += levelParameters.playerWalkAccel;
+      isFacingRight = true;
+    }
 
     if (collidingPlatform) {
       forceNormal = -levelParameters.gravity;
@@ -393,6 +409,37 @@ GameAction gameUpdate() {
         }
       }
     }
+  }
+
+  /// --- CÁLCULO DO DELTA TIME (NOVO CÓDIGO) ---
+  int currentTime = glutGet(GLUT_ELAPSED_TIME);
+  // O deltaTime (em segundos) é o tempo decorrido / 1000.0f
+  float deltaTime = (float)(currentTime - lastTime) / 1000.0f;
+  lastTime = currentTime;
+
+  // --- O RESTO DA SUA LÓGICA DE FÍSICA AQUI (usando 'deltaTime') ---
+  // ... (Sua lógica existente de player.x += player.velocityX * deltaTime,
+  // etc.)
+
+  // Lógica de Animação de Corrida (agora usa o 'deltaTime' calculado)
+  float velMag = fabs(player.velocityX);
+
+  // Condição para iniciar/manter a animação: está no chão E a velocidade é
+  // notável
+  if (isGrounded && velMag > 0.5f) {
+    // Multiplica por 1000.0f para usar o timer em milissegundos
+    runAnimationTimer += deltaTime * 1000.0f;
+
+    if (runAnimationTimer >= RUN_ANIMATION_SPEED_MS) {
+      // Alterna o frame: se 0, vira 1; se 1, vira 0.
+      currentRunFrame = 1 - currentRunFrame;
+      runAnimationTimer = 0.0f;
+    }
+  } else {
+    // Se parou, reseta o timer e frame para o estado inicial (parado ou Frame
+    // 0)
+    runAnimationTimer = 0.0f;
+    currentRunFrame = 0;
   }
 
   /**
@@ -714,7 +761,7 @@ void drawPhysicsDebugHUD() {
     Platform* platform = &platforms[i];
     if (platform->x < cameraLeft + VIEW_WIDTH &&
         platform->x + platform->w > cameraLeft) {
-      sprintf(buffer, "mu_%d: %.2f", i + 1, platform->frictionCoefficient);
+      sprintf(buffer, "mu_%zu: %.2f", i + 1, platform->frictionCoefficient);
       infoLines.push_back(buffer);
     }
   }
@@ -843,18 +890,40 @@ void gameDisplay() {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    /**
-     * Desenho de todos os elementos estáticos da fase
-     */
-    glCallList(platformListID);
-    glCallList(windZoneListID);
-    glCallList(spikeListID);
-    glCallList(doorListID);
+    // Desenha o fundo
+    drawTexturedRect(cameraLeft, cameraBottom, VIEW_WIDTH, VIEW_HEIGHT,
+                     texLevel1Background);
 
-    /**
-     * As paredes quebráveis não são elementos estáticos pois podem desaparecer
-     * da fase
-     */
+    // Desenha plataformas com textura
+    for (size_t i = 0; i < platforms.size(); i++) {
+      Platform* platform = &platforms[i];
+
+      // Plataforma 0 é o chão
+      if (i == 0) {
+        drawTexturedRect(platform->x, platform->y, platform->w, platform->h,
+                         texLevel1Floor);
+      } else {
+        drawTexturedRect(platform->x, platform->y, platform->w, platform->h,
+                         texLevel1Platform);
+      }
+
+      // Desenha o coeficiente de atrito
+      glColor3f(1.0, 1.0, 1.0);
+      drawText(platform->x + 20, platform->y + 15,
+               ("mu_" + std::to_string(i + 1)).c_str());
+    }
+
+    // Desenha windZones
+    glCallList(windZoneListID);
+
+    // Desenha spikes com textura
+    for (size_t i = 0; i < spikeZones.size(); i++) {
+      SpikeZone* spikeZone = &spikeZones[i];
+      drawTexturedRect(spikeZone->x, spikeZone->y, spikeZone->w, spikeZone->h,
+                       texLevel1ObstacleBottom);
+    }
+
+    // Desenha breakable walls
     for (size_t i = 0; i < breakableWalls.size(); i++) {
       BreakableWall* breakableWall = &breakableWalls[i];
       if (!breakableWall->isBroken) {
@@ -866,22 +935,64 @@ void gameDisplay() {
         glColor3f(1.0f, 1.0f, 1.0f);
         char strengthText[50];
         sprintf(strengthText, "Força: %.0f N", breakableWall->strength);
-
         int textWidth = getTextWidth(strengthText, GLUT_BITMAP_9_BY_15);
         drawText(breakableWall->w / 2 - textWidth / 2, breakableWall->h / 2 + 5,
-                 strengthText, GLUT_BITMAP_9_BY_15);  // Ajuste Y
+                 strengthText, GLUT_BITMAP_9_BY_15);
         glPopMatrix();
       }
     }
 
-    float playerCenterX = player.x + player.w / 2,
-          playerCenterY = player.y + player.h / 2;
+    // Desenha porta
+    drawTexturedRect(door.x, door.y, door.w, door.h, texLevel1Door);
 
+    // Desenha player com animação
+    float playerCenterX = player.x + player.w / 2;
+    float playerCenterY = player.y + player.h / 2;
+
+    // Seleciona a textura do player
+    GLuint currentPlayerTexture = texPlayer;
+    bool flipPlayer = false;
+
+    if (isGameOver) {
+      currentPlayerTexture = texPlayerLose;
+    } else if (isHooked || isHookFiring) {
+      currentPlayerTexture = texPlayerJump;
+      flipPlayer = !isFacingRight;  // Mantém a orientação no pulo/gancho
+    } else if (isGrounded) {
+      float velMag = fabs(player.velocityX);
+
+      if (velMag > 0.5f) {
+        // --- ESTÁ CORRENDO: Implementa a alternância de frames ---
+
+        if (currentRunFrame == 0) {
+          // Frame 0: Perna A na frente (texPlayerRunLeft)
+          currentPlayerTexture = texPlayerRunLeft;
+        } else {
+          // Frame 1: Perna B na frente (texPlayerRunRight)
+          currentPlayerTexture = texPlayerRunRight;
+        }
+
+        // Aplica a inversão (flip) se estiver correndo para a esquerda
+        flipPlayer = !isFacingRight;
+
+      } else {
+        // Está parado - usa textura base
+        currentPlayerTexture = texPlayer;
+        flipPlayer = !isFacingRight;
+      }
+    } else {
+      // No ar (não hooked)
+      currentPlayerTexture = texPlayerJump;
+      flipPlayer = !isFacingRight;
+    }
+
+    // Desenha o player
+    drawTexturedRect(player.x, player.y, player.w, player.h,
+                     currentPlayerTexture, flipPlayer);
+
+    // Desenha vetores físicos
     glPushMatrix();
     glTranslatef(playerCenterX, playerCenterY, 0.0f);
-
-    drawRect(-player.w / 2, -player.h / 2, player.w, player.h, player.r,
-             player.g, player.b);
 
     drawVector(0, 0, 0, levelParameters.gravity,
                levelParameters.vectorVisualScale, 0.2f, 0.2f, 1.0f, "P");
@@ -907,6 +1018,7 @@ void gameDisplay() {
 
     glPopMatrix();
 
+    // Desenha mira do grappling hook
     float vAX = mouseGameX - playerCenterX, vAY = mouseGameY - playerCenterY;
     float rMD = sqrt(vAX * vAX + vAY * vAY);
     float cMD = fmin(rMD, MAX_VISUAL_AIM_LENGTH);
@@ -930,6 +1042,7 @@ void gameDisplay() {
                  levelParameters.vectorVisualScale, 1.0f, 1.0f, 1.0f, magText);
     }
 
+    // Desenha corda do grappling hook
     if (isHookFiring || isHooked) {
       float endX = isHookFiring ? hookProjectileX : hookPointX;
       float endY = isHookFiring ? hookProjectileY : hookPointY;

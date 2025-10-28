@@ -32,7 +32,7 @@ void drawButton(const Button& btn) {
   }
 
   // 1. Desenha o retângulo do botão usando a textura
-  drawTexturedRect(btn.x, btn.y, btn.w, btn.h, textureToUse);
+  drawTexturedRect(btn.x, btn.y, btn.w, btn.h, textureToUse, false, false);
 
   // 2. O código para desenhar o TEXTO por cima do botão permanece o mesmo
   if (btn.enabled) {
@@ -67,7 +67,7 @@ void renderMenu(Button buttons[], int count) {
   float winW = (float)glutGet(GLUT_WINDOW_WIDTH);
   float winH = (float)glutGet(GLUT_WINDOW_HEIGHT);
   drawTexturedRect(0, 0, winW, winH,
-                   texMenuBackground);  // Usa o ID da textura de fundo
+                   texMenuBackground, false, false);  // Usa o ID da textura de fundo
 
   // 2. Desenha os botões (agora texturizados)
   for (int i = 0; i < count; i++) {
