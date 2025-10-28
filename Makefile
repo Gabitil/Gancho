@@ -21,7 +21,7 @@ ifeq ($(OS),Windows_NT)
     SHELLFLAGS := /C
     MKDIR = if not exist $(subst /,\,$(1)) mkdir $(subst /,\,$(1))
     RM = if exist $(subst /,\,$(1)) rmdir /S /Q $(subst /,\,$(1))
-    LIBS = -lfreeglut -lglew32 -lopengl32 -lglu32
+    LIBS = -lfreeglut -lglew32 -lglu32 -lopengl32
 else
     EXEC_NAME = jogo
     MKDIR = mkdir -p $(1)
