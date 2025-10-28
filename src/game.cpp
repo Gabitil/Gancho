@@ -129,6 +129,12 @@ int shotsRemaining = 0;
 bool isGameOver = false;
 int gameOverTimer = 0;
 
+/**
+ * Controle da tela de vitória
+ */
+bool isGameVictory = false;
+int gameVictoryTimer = 0;
+
 // Variáveis para controle da animação de corrida (Definições)
 float runAnimationTimer = 0.0f;
 int currentRunFrame = 0;
@@ -346,6 +352,16 @@ void gameReshape(int width, int height) { glViewport(0, 0, width, height); }
  * objetos.
  */
 GameAction gameUpdate() {
+
+  if (isGameVictory){
+    gameVictoryTimer--;
+    if (gameVictoryTimer <= 0) {
+      isGameVictory = false;
+      return GAME_ACTION_LEVEL_WON;
+    }
+    return GAME_ACTION_CONTINUE;
+  }
+
   if (isGameOver) {
     gameOverTimer--;
     if (gameOverTimer <= 0) {
@@ -527,7 +543,6 @@ GameAction gameUpdate() {
                                 spikeZone->x, spikeZone->y, spikeZone->w,
                                 spikeZone->h)) {
       isGameOver = true;
-      isGameOver = true;
       gameOverTimer = 180;  // Aproximadamente 3 segundos a 60 FPS
       return GAME_ACTION_CONTINUE;
     }
@@ -703,7 +718,7 @@ GameAction gameUpdate() {
   currentAcceleration = currentVelocityMag - lastVelocityMag;
   lastVelocityMag = currentVelocityMag;
 
-  if (shotsRemaining < 0 && !isGameOver) {
+  if (shotsRemaining <= 0 && !isGameOver) {
     isGameOver = true;
     gameOverTimer = 180;
     return GAME_ACTION_CONTINUE;
@@ -714,7 +729,9 @@ GameAction gameUpdate() {
    */
   if (checkRectangleCollision(player.x, player.y, player.w, player.h, door.x,
                               door.y, door.w, door.h)) {
-    return GAME_ACTION_LEVEL_WON;
+    isGameVictory = true;
+    gameVictoryTimer = 180;
+    return GAME_ACTION_CONTINUE;
   }
 
   /**
@@ -847,6 +864,32 @@ void drawGameOverScreen() {
   const char* gameOverText = "GAME OVER";
   drawTextCentered(glutGet(GLUT_WINDOW_WIDTH) / 2.0f,
                    glutGet(GLUT_WINDOW_HEIGHT) / 2.0f, gameOverText,
+                   GLUT_BITMAP_TIMES_ROMAN_24);
+
+  glMatrixMode(GL_PROJECTION);
+  glPopMatrix();
+  glMatrixMode(GL_MODELVIEW);
+  glPopMatrix();
+}
+
+/**
+ * Função responsável por desenhar a tela de game over
+ */
+void drawGameVictoryScreen() {
+  glMatrixMode(GL_PROJECTION);
+  glPushMatrix();
+  glLoadIdentity();
+  gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT), 0);
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glLoadIdentity();
+
+  drawRect(0, 0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT), 1.0f, 1.0f, 1.0f, 0.5f);
+
+  glColor4f(0.0f, 0.0f, 1.0f, 0.5f);  // Vermelho
+  const char* gameVictoryText = "VOCE VENCEU!";
+  drawTextCentered(glutGet(GLUT_WINDOW_WIDTH) / 2.0f,
+                   glutGet(GLUT_WINDOW_HEIGHT) / 2.0f, gameVictoryText,
                    GLUT_BITMAP_TIMES_ROMAN_24);
 
   glMatrixMode(GL_PROJECTION);
@@ -1088,6 +1131,10 @@ void gameDisplay() {
 
   drawPhysicsDebugHUD();
   drawShotCounterHUD();
+
+  if (isGameVictory) {
+    drawGameVictoryScreen();
+  }
 
   if (isGameOver) {
     drawGameOverScreen();
