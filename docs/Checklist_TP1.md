@@ -19,9 +19,9 @@
 
 ### 🌄 Fases e Cenário
 
-- [ ] **(3 pts)** Criar **pelo menos 3 fases bonitas**, com:
-  - [ ] Backgrounds bem modelados
-  - [ ] Movimento **paralaxe de fundo**
+- [X] **(3 pts)** Criar **pelo menos 3 fases bonitas**, com:
+  - [X] Backgrounds bem modelados
+  - [X] Movimento **paralaxe de fundo**
   - [ ] Duração de 2 a 5 minutos cada
   - [ ] Desafios constantes (sem períodos de inatividade)
 
@@ -37,14 +37,14 @@
 
 ### 🌀 Animações e Transformações
 
-- [ ] **(3 pts)** Aplicar **todas as transformações aprendidas em aula**
-- [ ] Usar **listas de apresentação (display lists)** para renderização
+- [X] **(3 pts)** Aplicar **todas as transformações aprendidas em aula**
+- [X] Usar **listas de apresentação (display lists)** para renderização
 
 ---
 
 ### 💥 Mecânicas e Interação
 
-- [ ] **(2 pts)** Implementar **colisão de retângulos**
+- [X] **(2 pts)** Implementar **colisão de retângulos**
 - [ ] **(2 pts)** Adicionar **sistema de pontuação**
 - [ ] **(2 pts)** Adicionar **sistema de vida**
 
@@ -53,7 +53,7 @@
 ### ☠️ Game Over e Virada de Jogo
 
 - [ ] **(2 pts)** Criar animações de:
-  - [ ] **Game Over**
+  - [X] **Game Over**
   - [ ] **Virada de jogo (vitória)**
   - [ ] Retornar ao menu inicial após o fim da partida
 
@@ -66,7 +66,7 @@
   - [ ] Execução de todos os requisitos
   - [ ] Explicação do código-fonte
   - [ ] Link incluso no `readme.txt`
-- [ ] Aplicar **texturas obrigatórias** em todos os elementos visuais
+- [X] Aplicar **texturas obrigatórias** em todos os elementos visuais
 
 ---
 
@@ -75,7 +75,7 @@
 - [X] `Makefile` na **pasta raiz** (com cláusulas `compilar`, `executar`, `limpar`)
 - [ ] **Códigos-fonte** na pasta raiz
 - [ ] Pasta **modelos/** com arquivos de modelos 2D
-- [ ] Pasta **imagens/** com arquivos `.png`
+- [X] Pasta **imagens/** com arquivos `.png`
 - [X] Arquivo `readme.txt` contendo:
 
   - [X] Nomes e matrículas do grupo
