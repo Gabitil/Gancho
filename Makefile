@@ -1,18 +1,22 @@
-
-# ============================================
-# Makefile Multiplataforma (Windows / Linux)
-# ============================================
-
 CXX = g++
 CXXFLAGS = -Iinclude -g -Wall -std=c++17
 LDFLAGS = -Llib
 
-SRC_DIR = src
 OBJ_DIR = obj
 BIN_DIR = bin
 
-SOURCES = $(wildcard $(SRC_DIR)/*.cpp)
-OBJECTS = $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(SOURCES))
+# ---- adicione aqui todas as pastas onde há .cpp ----
+SRC_DIRS := . core ui util gfx audio
+# se você ainda tiver coisas em src/xyz, pode incluir:
+# SRC_DIRS += src/core src/ui src/util src/gfx src/audio
+
+# pega todos os .cpp do projeto (exceta libs/bin/obj)
+SOURCES := $(shell find . -name '*.cpp' \
+                     -not -path './lib/*' \
+                     -not -path './bin/*' \
+                     -not -path './obj/*')
+# mapeia para objetos espelhando a subpasta
+OBJECTS := $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(SOURCES))
 
 # --- Detecção de SO e libs corretas ---
 ifeq ($(OS),Windows_NT)
@@ -26,18 +30,14 @@ else
     EXEC_NAME = jogo
     MKDIR = mkdir -p $(1)
     RM = rm -rf $(1)
-    # Em Linux (Ubuntu/Mint):
-    # FreeGLUT geralmente é -lglut (às vezes -lfreeglut)
     LIBS = -lglut -lGLEW -lGL -lGLU
-    # Se precisar, pode acrescentar: -lX11 -lXrandr -lpthread
 endif
 
 EXEC = $(BIN_DIR)/$(EXEC_NAME)
 
-# --- Regras principais ---
 all: $(EXEC)
 compilar: all
-run: executar   # alias para 'make run'
+run: executar
 
 $(EXEC): $(OBJECTS)
 	@echo [LINK] Criando executável $@
@@ -45,9 +45,10 @@ $(EXEC): $(OBJECTS)
 	$(CXX) $^ -o $@ $(LDFLAGS) $(LIBS)
 	@echo [OK] Compilação concluída.
 
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
+# regra de compilação que cria a subpasta em obj/ se precisar
+$(OBJ_DIR)/%.o: %.cpp
 	@echo [C++] Compilando $<
-	$(call MKDIR,$(OBJ_DIR))
+	$(call MKDIR,$(dir $@))
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 executar: all
@@ -65,4 +66,4 @@ limpar:
 	$(call RM,$(BIN_DIR))
 	@echo Limpeza concluída.
 
-.PHONY: all compilar executar limpar run
+.PHONY: all compilar executar limpar run
