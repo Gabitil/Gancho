@@ -55,6 +55,7 @@ std::vector<Platform> platforms;
 std::vector<WindZone> windZones;
 std::vector<BreakableWall> breakableWalls;
 std::vector<SpikeZone> spikeZones;
+std::vector<RiverZone> riverZones;
 
 struct LevelParameters {
   float gravity;
@@ -71,7 +72,7 @@ struct LevelParameters {
 
 LevelParameters levelParameters;
 
-int CURRENT_LEVEL = 1;    // Variável de controle do level atual
+// int CURRENT_LEVEL = 1;    // Variável de controle do level atual
 bool isGrounded = false;  // Variável para verificar se o personagem está em
                           // contato com alguma plataforma
 bool isHooked = false;    // Variável para identificar se o personagem está
@@ -141,6 +142,8 @@ int currentRunFrame = 0;
 
 // Variável para cálculo do Delta Time (tempo decorrido entre frames)
 static int lastTime = 0;  // Armazena o tempo da última atualização em ms
+
+// Variável global do nível atual (Definição da variável declarada em game.h)
 
 /**
  * Como parte dos requisitos técnicos, os elementos estáticos das fases serão
@@ -219,11 +222,15 @@ void createDisplayLists() {
  * estruturar a nova fase, incluindo seus parâmetros de física e movimentação do
  * personagem.
  */
+
+int CURRENT_LEVEL = 1;
+
 void gameStartLevel(int level) {
   platforms.clear();
   windZones.clear();
   breakableWalls.clear();
   spikeZones.clear();
+  riverZones.clear();
 
   CURRENT_LEVEL = level;
 
@@ -239,75 +246,164 @@ void gameStartLevel(int level) {
       levelParameters.maxPullStrengthPhysics = 0.4f;
       levelParameters.vectorVisualScale =
           MAX_VISUAL_AIM_LENGTH / levelParameters.maxPullStrengthPhysics;
-      levelParameters.maxShots = 5;
+      levelParameters.maxShots = 8;
 
+      // Chão (evita o rio)
+      platforms.push_back({0, 0, 700, 40, 0.2f, 0.6f, 0.2f, true, 0.8f});
       platforms.push_back(
-          {0, 0, WORLD_WIDTH, 40, 0.2f, 0.6f, 0.2f, true, 0.8f});
-      platforms.push_back({500, 400, 300, 80, 0.4f, 0.4f, 0.4f, true, 0.1f});
-      windZones.push_back({800, 40, 100, 300, 0.0f, 0.05f});
+          {1100, 0, WORLD_WIDTH - 1100, 40, 0.2f, 0.6f, 0.2f, true, 0.8f});
+
+      // Plataformas suspensas
+      platforms.push_back({400, 250, 200, 50, 0.4f, 0.4f, 0.4f, true, 0.2f});
+      platforms.push_back({750, 350, 250, 50, 0.4f, 0.4f, 0.4f, true, 0.15f});
+      platforms.push_back({1200, 280, 200, 50, 0.4f, 0.4f, 0.4f, true, 0.25f});
+      platforms.push_back({1600, 400, 300, 50, 0.4f, 0.4f, 0.4f, true, 0.1f});
+      platforms.push_back({2100, 320, 250, 50, 0.4f, 0.4f, 0.4f, true, 0.2f});
+
+      // Rio mortal
+      riverZones.push_back({700, 0, 400, 40});
+
+      // Corrente de vento
+      windZones.push_back({1000, 40, 120, 350, 0.0f, 0.06f});
+      windZones.push_back({2000, 40, 100, 300, -0.04f, 0.0f});
+
+      // Paredes quebráveis
       breakableWalls.push_back(
-          {1200, 40, 40, 150, 0.6f, 0.4f, 0.2f, 20.0f, false});
-      spikeZones.push_back({1500, 40, 200, 40, 1.0f, 0.0f, 0.0f});
+          {1400, 40, 40, 180, 0.6f, 0.4f, 0.2f, 25.0f, false});
+      breakableWalls.push_back(
+          {2400, 40, 40, 200, 0.6f, 0.4f, 0.2f, 30.0f, false});
+
+      // Espinhos no chão
+      spikeZones.push_back({200, 40, 150, 30, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({1500, 40, 200, 30, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({2200, 40, 180, 30, 1.0f, 0.0f, 0.0f});
+
+      // Espinhos nas plataformas (teto)
+      spikeZones.push_back({400, 290, 200, 30, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({1600, 440, 300, 30, 1.0f, 0.0f, 0.0f});
 
       player = {50, platforms[0].h, 40, PLAYER_HEIGHT, 0.9f, 0.1f, 0.1f, 0, 0};
-      door = {WORLD_WIDTH - 200, platforms[0].h, 50, 100, 0.5f, 0.3f, 0.0f};
-
+      door = {WORLD_WIDTH - 150, platforms[0].h, 50, 100, 0.5f, 0.3f, 0.0f};
       break;
 
     case 2:
-      levelParameters.gravity = -0.07f;
+      levelParameters.gravity = -0.08f;
       levelParameters.playerMass = 8.0f;
       levelParameters.playerWalkAccel = 0.12f;
       levelParameters.maxWalkSpeed = 4.0f;
       levelParameters.maxPlayerSpeed = 35.0f;
       levelParameters.dampingFactor = 0.995f;
-      levelParameters.hookSpeed = 30.0f;
-      levelParameters.maxPullStrengthPhysics = 0.3f;
+      levelParameters.hookSpeed = 28.0f;
+      levelParameters.maxPullStrengthPhysics = 0.35f;
       levelParameters.vectorVisualScale =
           MAX_VISUAL_AIM_LENGTH / levelParameters.maxPullStrengthPhysics;
-      levelParameters.maxShots = 3;
+      levelParameters.maxShots = 6;
 
+      // Chão fragmentado (evita rios)
+      platforms.push_back({0, 0, 500, 40, 0.1f, 0.1f, 0.8f, true, 0.5f});
+      platforms.push_back({850, 0, 400, 40, 0.1f, 0.1f, 0.8f, true, 0.5f});
       platforms.push_back(
-          {0, 0, WORLD_WIDTH, 40, 0.1f, 0.1f, 0.8f, true, 0.5f});
-      platforms.push_back({300, 200, 250, 60, 0.5f, 0.5f, 0.5f, true, 0.1f});
-      platforms.push_back({600, 350, 250, 60, 0.5f, 0.5f, 0.5f, true, 0.1f});
-      platforms.push_back({1000, 350, 400, 60, 0.5f, 0.5f, 0.5f, true, 0.1f});
+          {1600, 0, WORLD_WIDTH - 1600, 40, 0.1f, 0.1f, 0.8f, true, 0.5f});
+
+      // Plataformas suspensas
+      platforms.push_back({250, 220, 180, 60, 0.5f, 0.5f, 0.5f, true, 0.15f});
+      platforms.push_back({550, 350, 200, 60, 0.5f, 0.5f, 0.5f, true, 0.1f});
+      platforms.push_back({900, 280, 220, 60, 0.5f, 0.5f, 0.5f, true, 0.2f});
+      platforms.push_back({1300, 400, 250, 60, 0.5f, 0.5f, 0.5f, true, 0.12f});
+      platforms.push_back({1700, 320, 200, 60, 0.5f, 0.5f, 0.5f, true, 0.18f});
+      platforms.push_back({2100, 450, 280, 60, 0.5f, 0.5f, 0.5f, true, 0.08f});
+      platforms.push_back({2500, 280, 200, 60, 0.5f, 0.5f, 0.5f, true, 0.15f});
+
+      // Rios mortais
+      riverZones.push_back({500, 0, 350, 40});
+      riverZones.push_back({1250, 0, 350, 40});
+
+      // Correntes de vento
+      windZones.push_back({800, 40, 150, 400, 0.0f, 0.07f});
+      windZones.push_back({2200, 40, 120, 350, 0.05f, 0.0f});
+
+      // Paredes quebráveis
       breakableWalls.push_back(
-          {1000, 40, 30, 100, 0.6f, 0.4f, 0.2f, 10.0f, false});
-      spikeZones.push_back({300, 40, 300, 30, 1.0f, 0.0f, 0.0f});
-      spikeZones.push_back({1300, 40, 300, 30, 1.0f, 0.0f, 0.0f});
+          {1100, 40, 35, 120, 0.6f, 0.4f, 0.2f, 18.0f, false});
+      breakableWalls.push_back(
+          {2000, 40, 35, 150, 0.6f, 0.4f, 0.2f, 20.0f, false});
 
-      player = {100, platforms[0].h, 40, PLAYER_HEIGHT, 0.9f, 0.1f, 0.1f, 0, 0};
-      door = {WORLD_WIDTH - 150, platforms[0].h, 50, 100, 0.5f, 0.3f, 0.0f};
+      // Espinhos no chão
+      spikeZones.push_back({150, 40, 120, 30, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({1650, 40, 250, 30, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({2400, 40, 200, 30, 1.0f, 0.0f, 0.0f});
 
+      // Espinhos nas plataformas
+      spikeZones.push_back({250, 270, 180, 25, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({900, 330, 220, 25, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({1700, 370, 200, 25, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({2100, 500, 280, 25, 1.0f, 0.0f, 0.0f});
+
+      player = {80, platforms[0].h, 40, PLAYER_HEIGHT, 0.9f, 0.1f, 0.1f, 0, 0};
+      door = {WORLD_WIDTH - 120, platforms[0].h, 50, 100, 0.5f, 0.3f, 0.0f};
       break;
 
     case 3:
-      levelParameters.gravity = -0.05f;
+      levelParameters.gravity = -0.06f;
       levelParameters.playerMass = 6.0f;
       levelParameters.playerWalkAccel = 0.15f;
       levelParameters.maxWalkSpeed = 5.0f;
       levelParameters.maxPlayerSpeed = 40.0f;
       levelParameters.dampingFactor = 0.998f;
-      levelParameters.hookSpeed = 35.0f;
-      levelParameters.maxPullStrengthPhysics = 0.25f;
+      levelParameters.hookSpeed = 32.0f;
+      levelParameters.maxPullStrengthPhysics = 0.28f;
       levelParameters.vectorVisualScale =
           MAX_VISUAL_AIM_LENGTH / levelParameters.maxPullStrengthPhysics;
-      levelParameters.maxShots = 2;
+      levelParameters.maxShots = 5;
+
+      // Chão muito fragmentado
+      platforms.push_back({0, 0, 400, 40, 0.3f, 0.3f, 0.3f, true, 0.3f});
+      platforms.push_back({750, 0, 350, 40, 0.3f, 0.3f, 0.3f, true, 0.3f});
+      platforms.push_back({1450, 0, 300, 40, 0.3f, 0.3f, 0.3f, true, 0.3f});
       platforms.push_back(
-          {0, 0, WORLD_WIDTH, 40, 0.3f, 0.3f, 0.3f, true, 0.3f});
-      platforms.push_back({400, 250, 200, 50, 0.6f, 0.4f, 0.2f, true, 0.05f});
-      platforms.push_back({700, 400, 200, 50, 0.6f, 0.4f, 0.2f, true, 0.05f});
-      platforms.push_back({1100, 300, 300, 50, 0.6f, 0.4f, 0.2f, true, 0.05f});
-      platforms.push_back({2000, 450, 300, 50, 0.6f, 0.4f, 0.2f, true, 0.05f});
+          {2100, 0, WORLD_WIDTH - 2100, 40, 0.3f, 0.3f, 0.3f, true, 0.3f});
+
+      // Plataformas suspensas desafiadoras
+      platforms.push_back({300, 280, 150, 50, 0.6f, 0.4f, 0.2f, true, 0.08f});
+      platforms.push_back({600, 420, 180, 50, 0.6f, 0.4f, 0.2f, true, 0.05f});
+      platforms.push_back({900, 320, 160, 50, 0.6f, 0.4f, 0.2f, true, 0.1f});
+      platforms.push_back({1200, 450, 200, 50, 0.6f, 0.4f, 0.2f, true, 0.06f});
+      platforms.push_back({1550, 350, 180, 50, 0.6f, 0.4f, 0.2f, true, 0.09f});
+      platforms.push_back({1850, 480, 220, 50, 0.6f, 0.4f, 0.2f, true, 0.04f});
+      platforms.push_back({2250, 360, 200, 50, 0.6f, 0.4f, 0.2f, true, 0.07f});
+      platforms.push_back({2600, 260, 180, 50, 0.6f, 0.4f, 0.2f, true, 0.1f});
+
+      // Rios mortais (sem chão)
+      riverZones.push_back({400, 0, 350, 40});
+      riverZones.push_back({1100, 0, 350, 40});
+      riverZones.push_back({1750, 0, 350, 40});
+
+      // Correntes de vento perigosas
+      windZones.push_back({850, 40, 180, 450, 0.0f, 0.09f});
+      windZones.push_back({1400, 40, 150, 400, -0.06f, 0.0f});
+      windZones.push_back({2400, 40, 180, 450, 0.0f, 0.08f});
+
+      // Paredes quebráveis resistentes
       breakableWalls.push_back(
-          {1300, 40, 20, 120, 0.6f, 0.4f, 0.2f, 5.0f, false});
-      spikeZones.push_back({600, 40, 400, 30, 1.0f, 0.0f, 0.0f});
-      spikeZones.push_back({1600, 40, 400, 30, 1.0f, 0.0f, 0.0f});
-      spikeZones.push_back({2200, 40, 400, 30, 1.0f, 0.0f, 0.0f});
-      windZones.push_back({1800, 40, 150, 300, 0.0f, 0.08f});
-      windZones.push_back({2500, 40, 150, 300, 0.05f, 0.0f});
-      player = {150, platforms[0].h, 40, PLAYER_HEIGHT, 0.9f, 0.1f, 0.1f, 0, 0};
+          {1300, 40, 25, 140, 0.6f, 0.4f, 0.2f, 15.0f, false});
+      breakableWalls.push_back(
+          {2100, 40, 25, 160, 0.6f, 0.4f, 0.2f, 18.0f, false});
+
+      // Muitos espinhos no chão
+      spikeZones.push_back({550, 40, 180, 30, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({1500, 40, 200, 30, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({2150, 40, 220, 30, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({2650, 40, 180, 30, 1.0f, 0.0f, 0.0f});
+
+      // Espinhos nas plataformas (teto e piso)
+      spikeZones.push_back({300, 320, 150, 25, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({600, 465, 180, 25, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({900, 365, 160, 25, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({1200, 495, 200, 25, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({1850, 525, 220, 25, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({2250, 405, 200, 25, 1.0f, 0.0f, 0.0f});
+
+      player = {120, platforms[0].h, 40, PLAYER_HEIGHT, 0.9f, 0.1f, 0.1f, 0, 0};
       door = {WORLD_WIDTH - 100, platforms[0].h, 50, 100, 0.5f, 0.3f, 0.0f};
       break;
 
@@ -352,8 +448,7 @@ void gameReshape(int width, int height) { glViewport(0, 0, width, height); }
  * objetos.
  */
 GameAction gameUpdate() {
-
-  if (isGameVictory){
+  if (isGameVictory) {
     gameVictoryTimer--;
     if (gameVictoryTimer <= 0) {
       isGameVictory = false;
@@ -544,6 +639,20 @@ GameAction gameUpdate() {
                                 spikeZone->h)) {
       isGameOver = true;
       gameOverTimer = 180;  // Aproximadamente 3 segundos a 60 FPS
+      return GAME_ACTION_CONTINUE;
+    }
+  }
+
+  /**
+   * Verificação da colisão com os rios (morte instantânea)
+   */
+  for (size_t i = 0; i < riverZones.size(); i++) {
+    RiverZone* riverZone = &riverZones[i];
+    if (checkRectangleCollision(player.x, player.y, player.w, player.h,
+                                riverZone->x, riverZone->y, riverZone->w,
+                                riverZone->h)) {
+      isGameOver = true;
+      gameOverTimer = 180;
       return GAME_ACTION_CONTINUE;
     }
   }
@@ -759,14 +868,8 @@ void drawPhysicsDebugHUD() {
 
   float lineHeight = 15.0f;
   float margin = 10.0f;
-  float padding = 8.0f;
+  float padding = 20.0f;
 
-  /**
-   * Vetor de strings usado para controlar quais as informações estarão
-   * disponíveis na caixa de visualização. Para que não fique tão poluída a tela
-   * com informações desnecessárias, alguns valores só aparecem caso algumas
-   * condições sejam satisfeitas
-   */
   std::vector<std::string> infoLines;
   char buffer[100];
 
@@ -796,11 +899,6 @@ void drawPhysicsDebugHUD() {
     infoLines.push_back(buffer);
   }
 
-  /**
-   * Para mais fins de otimização dos valores e limpeza da tela, as constantes
-   * de coeficiente de atrito só aparecem caso a plataforma esteja visível na
-   * tela
-   */
   for (size_t i = 0; i < platforms.size(); ++i) {
     Platform* platform = &platforms[i];
     if (platform->x < cameraLeft + VIEW_WIDTH &&
@@ -810,25 +908,26 @@ void drawPhysicsDebugHUD() {
     }
   }
 
-  /**
-   * Para centralizar as operações na caixa corretamente, é feito um controle a
-   * partir da maior frase de todas para definir qual o tamanho da caixa de
-   * visualização
-   */
   float maxWidth = 0;
   for (const auto& line : infoLines) {
     maxWidth = std::max(maxWidth,
                         (float)getTextWidth(line.c_str(), GLUT_BITMAP_9_BY_15));
   }
 
-  float blockWidth = maxWidth + 2 * padding;
-  float blockHeight =
-      (infoLines.size() * lineHeight) + (padding * 2) - (lineHeight - 10);
+  float blockWidth = maxWidth + (2 * padding) + 10.0f;
+  float blockHeight = (infoLines.size() * lineHeight) + (2 * padding) + 5.0f;
   float blockPositionX = glutGet(GLUT_WINDOW_WIDTH) - margin - blockWidth;
   float blockPositionY = margin;
 
-  drawRect(blockPositionX, blockPositionY, blockWidth, blockHeight, 0.0f, 0.0f,
-           0.0f, 0.7f);
+  // NOVO: Desenha textura de fundo se disponível
+  if (texDisplayGrappler != 0) {
+    drawTexturedRect(blockPositionX, blockPositionY, blockWidth, blockHeight,
+                     texDisplayGrappler, false, false);
+  } else {
+    // Fallback: fundo preto translúcido
+    drawRect(blockPositionX, blockPositionY, blockWidth, blockHeight, 0.0f,
+             0.0f, 0.0f, 0.7f);
+  }
 
   float currentYForWrite = blockPositionY + padding + 10;
   for (const auto& line : infoLines) {
@@ -852,19 +951,15 @@ void drawGameOverScreen() {
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
   glLoadIdentity();
+  // Configura a projeção para 2D (coordenadas de tela)
   gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT), 0);
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
   glLoadIdentity();
 
-  drawRect(0, 0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT), 0.0f,
-           0.0f, 0.0f, 0.5f);
-
-  glColor3f(1.0f, 0.0f, 0.0f);  // Vermelho
-  const char* gameOverText = "GAME OVER";
-  drawTextCentered(glutGet(GLUT_WINDOW_WIDTH) / 2.0f,
-                   glutGet(GLUT_WINDOW_HEIGHT) / 2.0f, gameOverText,
-                   GLUT_BITMAP_TIMES_ROMAN_24);
+  // Desenha a textura de Game Over
+  drawTexturedRect(0, 0, glutGet(GLUT_WINDOW_WIDTH),
+                   glutGet(GLUT_WINDOW_HEIGHT), texGameOver, false, false);
 
   glMatrixMode(GL_PROJECTION);
   glPopMatrix();
@@ -873,24 +968,21 @@ void drawGameOverScreen() {
 }
 
 /**
- * Função responsável por desenhar a tela de game over
+ * Função responsável por desenhar a tela de vitória
  */
 void drawGameVictoryScreen() {
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
   glLoadIdentity();
+  // Configura a projeção para 2D (coordenadas de tela)
   gluOrtho2D(0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT), 0);
   glMatrixMode(GL_MODELVIEW);
   glPushMatrix();
   glLoadIdentity();
 
-  drawRect(0, 0, glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT), 1.0f, 1.0f, 1.0f, 0.5f);
-
-  glColor4f(0.0f, 0.0f, 1.0f, 0.5f);  // Vermelho
-  const char* gameVictoryText = "VOCE VENCEU!";
-  drawTextCentered(glutGet(GLUT_WINDOW_WIDTH) / 2.0f,
-                   glutGet(GLUT_WINDOW_HEIGHT) / 2.0f, gameVictoryText,
-                   GLUT_BITMAP_TIMES_ROMAN_24);
+  // Desenha a textura de Vitória
+  drawTexturedRect(0, 0, glutGet(GLUT_WINDOW_WIDTH),
+                   glutGet(GLUT_WINDOW_HEIGHT), texWinGame, false, false);
 
   glMatrixMode(GL_PROJECTION);
   glPopMatrix();
@@ -915,13 +1007,20 @@ void drawShotCounterHUD() {
           shotsRemaining >= 0 ? shotsRemaining : 0, levelParameters.maxShots);
 
   float textWidth = getTextWidth(shotText, GLUT_BITMAP_9_BY_15);
-  float padding = 8.0f;
-  float blockWidth = textWidth + 2 * padding;
-  float blockHeight = 15.0f + 2 * padding;
+  float padding = 18.0f;
+  float blockWidth = textWidth + (2 * padding) + 20.0f;
+  float blockHeight = 6.0f + (2 * padding) + 6.0f;
   float blockX = glutGet(GLUT_WINDOW_WIDTH) / 2.0f - blockWidth / 2.0f;
   float blockY = 10.0f;
 
-  drawRect(blockX, blockY, blockWidth, blockHeight, 0.0f, 0.0f, 0.0f, 0.7f);
+  // NOVO: Desenha textura de fundo se disponível
+  if (texDisplayGrappler != 0) {
+    drawTexturedRect(blockX, blockY, blockWidth, blockHeight,
+                     texDisplayGrappler, false, false);
+  } else {
+    // Fallback: fundo preto translúcido
+    drawRect(blockX, blockY, blockWidth, blockHeight, 0.0f, 0.0f, 0.0f, 0.7f);
+  }
 
   glColor3f(1.0f, 1.0f, 1.0f);
   drawTextCentered(glutGet(GLUT_WINDOW_WIDTH) / 2.0f, blockY + padding + 10,
@@ -962,7 +1061,7 @@ void gameDisplay() {
 
     // Desenha o fundo
     drawTexturedRect(cameraLeft, cameraBottom, VIEW_WIDTH, VIEW_HEIGHT,
-                     texLevel1Background);
+                     texBackground);
 
     // Desenha plataformas com textura
     for (size_t i = 0; i < platforms.size(); i++) {
@@ -971,16 +1070,23 @@ void gameDisplay() {
       // Plataforma 0 é o chão
       if (i == 0) {
         drawTexturedRect(platform->x, platform->y, platform->w, platform->h,
-                         texLevel1Floor);
+                         texFloor);
       } else {
         drawTexturedRect(platform->x, platform->y, platform->w, platform->h,
-                         texLevel1Platform);
+                         texPlatform);
       }
 
       // Desenha o coeficiente de atrito
       glColor3f(1.0, 1.0, 1.0);
       drawText(platform->x + 20, platform->y + 15,
                ("mu_" + std::to_string(i + 1)).c_str());
+    }
+
+    // Desenha rios
+    for (size_t i = 0; i < riverZones.size(); i++) {
+      RiverZone* riverZone = &riverZones[i];
+      drawTexturedRect(riverZone->x, riverZone->y, riverZone->w, riverZone->h,
+                       texRiver);
     }
 
     // Desenha windZones
@@ -990,7 +1096,7 @@ void gameDisplay() {
     for (size_t i = 0; i < spikeZones.size(); i++) {
       SpikeZone* spikeZone = &spikeZones[i];
       drawTexturedRect(spikeZone->x, spikeZone->y, spikeZone->w, spikeZone->h,
-                       texLevel1ObstacleBottom);
+                       texObstacleBottom);
     }
 
     // Desenha breakable walls
@@ -1013,7 +1119,7 @@ void gameDisplay() {
     }
 
     // Desenha porta
-    drawTexturedRect(door.x, door.y, door.w, door.h, texLevel1Door);
+    drawTexturedRect(door.x, door.y, door.w, door.h, texDoor);
 
     // Desenha player com animação
     float playerCenterX = player.x + player.w / 2;

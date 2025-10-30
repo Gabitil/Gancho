@@ -11,6 +11,8 @@
 #include <GL/freeglut.h>
 #include <stdio.h>
 
+#include <string>
+
 #include "game.h"
 #include "menu.h"
 #include "utils.h"
@@ -44,21 +46,20 @@ GLuint texPlayer = 0;
 GLuint texPlayerRunRight = 0;
 GLuint texPlayerRunLeft = 0;
 GLuint texPlayerJump = 0;
-GLuint texPlayerSliding = 0;
-GLuint texPlayerSlidingLying = 0;
 GLuint texPlayerLose = 0;
-GLuint texPlayerWin = 0;
 
 // Texturas do Level 1
-GLuint texLevel1Background = 0;
-GLuint texLevel1AirCurrent = 0;
-GLuint texLevel1Floor = 0;
-GLuint texLevel1FloorElements = 0;
-GLuint texLevel1River = 0;
-GLuint texLevel1Platform = 0;
-GLuint texLevel1ObstacleTop = 0;
-GLuint texLevel1ObstacleBottom = 0;
-GLuint texLevel1Door = 0;
+GLuint texBackground = 0;
+GLuint texFloor = 0;
+GLuint texRiver = 0;
+GLuint texPlatform = 0;
+GLuint texObstacleBottom = 0;
+GLuint texDoor = 0;
+
+GLuint texWinGame = 0;
+GLuint texGameOver = 0;
+
+GLuint texDisplayGrappler = 0;  // Textura do gancho
 
 Button menuButtons[NUM_MENU_BUTTONS];  // Botões do menu principal
 Button instrBackButton;  // Boão de voltar contido na tela de instruções
@@ -89,26 +90,46 @@ void timer(int value);
  * nível.
  */
 void loadGameTextures() {
-  // Texturas do Jogador (Assumindo que há arquivos para cada estado)
+  // Texturas do Jogador
   texPlayer = loadTexture("imagens/player/player.png");
   texPlayerRunRight = loadTexture("imagens/player/player_run_right.png");
   texPlayerRunLeft = loadTexture("imagens/player/player_run_left.png");
   texPlayerJump = loadTexture("imagens/player/player_jump.png");
-  texPlayerSliding = loadTexture("imagens/player/player_sliding.png");
-  texPlayerSlidingLying = loadTexture("imagens/player/player_sliding_lying.png");
   texPlayerLose = loadTexture("imagens/player/player_lose.png");
-  texPlayerWin = loadTexture("imagens/player/player_win.png");
+  texDoor = loadTexture("imagens/global/door.png");
 
-  // Texturas do Nível 1 (imagens/level1)
-  texLevel1Background = loadTexture("imagens/level1/background.png");
-  texLevel1AirCurrent = loadTexture("imagens/level1/air_current.png");
-  texLevel1Floor = loadTexture("imagens/level1/floor.png");
-  texLevel1FloorElements = loadTexture("imagens/level1/floor_elements.png");
-  texLevel1River = loadTexture("imagens/level1/river.png");
-  texLevel1Platform = loadTexture("imagens/level1/complete_platform.png");
-  texLevel1ObstacleTop = loadTexture("imagens/level1/obstacle_top.png");
-  texLevel1ObstacleBottom = loadTexture("imagens/level1/obstacle_bottom.png");
-  texLevel1Door = loadTexture("imagens/global/door.png");
+  // ------------------------------------------------
+  // CARREGAMENTO DE TEXTURAS POR NÍVEL
+  // ------------------------------------------------
+  std::string levelPath;
+  switch (CURRENT_LEVEL) {
+    case 1:
+      levelPath = "imagens/level1/";
+      break;
+    case 2:
+      levelPath = "imagens/level2/";
+      break;
+    case 3:
+      levelPath = "imagens/level3/";
+      break;
+    default:
+      // Caso não exista a pasta, usa o default (level1)
+      levelPath = "imagens/level1/";
+      break;
+  }
+
+  // Texturas do Nível (caminho dinâmico)
+  // TODOS os caminhos agora usam 'levelPath'
+  texBackground = loadTexture((levelPath + "background.png").c_str());
+  texFloor = loadTexture((levelPath + "floor.png").c_str());
+  texRiver = loadTexture((levelPath + "river.png").c_str());
+  texPlatform = loadTexture((levelPath + "complete_platform.png").c_str());
+  texObstacleBottom = loadTexture((levelPath + "obstacle_bottom.png").c_str());
+  texRiver = loadTexture((levelPath + "river.png").c_str());
+
+  texWinGame = loadTexture("imagens/global/win_game.png");
+  texGameOver = loadTexture("imagens/global/game_over.png");
+  texDisplayGrappler = loadTexture("imagens/global/display_grappler.png");
 }
 
 void renderInstructions() {
@@ -116,8 +137,8 @@ void renderInstructions() {
   // Desenha o fundo de instruções
   float winW = (float)glutGet(GLUT_WINDOW_WIDTH);
   float winH = (float)glutGet(GLUT_WINDOW_HEIGHT);
-  drawTexturedRect(0, 0, winW, winH,
-                   texInstructionsBackground, false, false);  // Usa o ID da textura de fundo
+  drawTexturedRect(0, 0, winW, winH, texInstructionsBackground, false,
+                   false);  // Usa o ID da textura de fundo
   drawText(50, 80, "INSTRUCOES DE COMO JOGAR: ");
   drawText(50, 120,
            "- Use 'A' e 'D' ou setas (<- ->) para andar no chao. Nao e "
@@ -147,8 +168,8 @@ void renderLevelSelect() {
   // Desenha o fundo de seleção de níveis
   float winW = (float)glutGet(GLUT_WINDOW_WIDTH);
   float winH = (float)glutGet(GLUT_WINDOW_HEIGHT);
-  drawTexturedRect(0, 0, winW, winH,
-                   texLevelSelectBackground, false, false);  // Usa o ID da textura de fundo
+  drawTexturedRect(0, 0, winW, winH, texLevelSelectBackground, false,
+                   false);  // Usa o ID da textura de fundo
   drawText(50, 80, "Escolha a fase");
   for (int i = 0; i < NUM_LEVELS; i++) {
     drawButton(levelButtons[i]);
@@ -352,6 +373,7 @@ void mouseClick(int button, int state, int x, int y) {
             activeLevel = i + 1;
             currentState = STATE_GAME;
             gameStartLevel(activeLevel);
+            loadGameTextures();
             glutTimerFunc(16, timer, 0);
             break;
           }

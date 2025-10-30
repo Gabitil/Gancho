@@ -78,21 +78,24 @@ extern GLuint texPlayer;
 extern GLuint texPlayerRunRight;
 extern GLuint texPlayerRunLeft;
 extern GLuint texPlayerJump;
-extern GLuint texPlayerSliding;
-extern GLuint texPlayerSlidingLying;
 extern GLuint texPlayerLose;
-extern GLuint texPlayerWin;
 
-// Texturas do Level 1
-extern GLuint texLevel1Background;
-extern GLuint texLevel1AirCurrent;
-extern GLuint texLevel1Floor;
-extern GLuint texLevel1FloorElements;
-extern GLuint texLevel1River;
-extern GLuint texLevel1Platform;
-extern GLuint texLevel1ObstacleTop;
-extern GLuint texLevel1ObstacleBottom;
-extern GLuint texLevel1Door;
+// Texturas dos Levels
+extern GLuint texBackground;
+extern GLuint texFloor;
+extern GLuint texRiver;
+extern GLuint texPlatform;
+extern GLuint texObstacleBottom;
+extern GLuint texDoor;
+
+extern GLuint texWinGame;
+extern GLuint texGameOver;
+
+extern GLuint texDisplayGrappler;  // Textura do gancho
+
+struct RiverZone {
+  float x, y, w, h;
+};
 
 // Define a velocidade da animação (em milissegundos por troca de frame)
 const float RUN_ANIMATION_SPEED_MS =
@@ -103,5 +106,8 @@ extern float runAnimationTimer;
 
 // Variável que indica qual frame de corrida está ativo (0 ou 1)
 extern int currentRunFrame;
+
+// Variável de controle do level atual
+extern int CURRENT_LEVEL;
 
 #endif
