@@ -1059,9 +1059,31 @@ void gameDisplay() {
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    // Desenha o fundo
-    drawTexturedRect(cameraLeft, cameraBottom, VIEW_WIDTH, VIEW_HEIGHT,
-                     texBackground);
+      // --- EFEITO PARALLAX (3 camadas) ---------------------------------
+      const float parallaxFar  = 0.20f;  // montanhas/longe
+      const float parallaxMid  = 0.50f;  // nuvens/meio
+      const float parallaxNear = 0.90f;  // árvores/perto (menor que 1 já dá sensação de profundidade)
+
+      const float tileFarW  = VIEW_WIDTH;  // cada tile da camada cobre 1 tela
+      const float tileFarH  = VIEW_HEIGHT;
+      const float tileMidW  = VIEW_WIDTH;
+      const float tileMidH  = VIEW_HEIGHT;
+      const float tileNearW = VIEW_WIDTH;
+      const float tileNearH = VIEW_HEIGHT;
+
+      // Desenha do “fundo” para “frente”
+      drawParallaxLayer(texBackgroundFar,
+                        cameraLeft, cameraBottom, VIEW_WIDTH, VIEW_HEIGHT,
+                        parallaxFar, 0.0f, tileFarW, tileFarH);
+
+      drawParallaxLayer(texBackgroundMid,
+                        cameraLeft, cameraBottom, VIEW_WIDTH, VIEW_HEIGHT,
+                        parallaxMid, 0.0f, tileMidW, tileMidH);
+
+      drawParallaxLayer(texBackgroundNear,
+                        cameraLeft, cameraBottom, VIEW_WIDTH, VIEW_HEIGHT,
+                        parallaxNear, 0.0f, tileNearW, tileNearH);
+
 
     // Desenha plataformas com textura
     for (size_t i = 0; i < platforms.size(); i++) {

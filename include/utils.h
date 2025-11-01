@@ -304,4 +304,12 @@ GLuint loadTexture(const char* filepath);
 void drawTexturedRect(float x, float y, float w, float h, GLuint textureID,
                       bool flipH = false, bool flipV = true);
 
-            
+void drawRepeatingTexturedRect(float x, float y, float w, float h,
+                               GLuint textureID, float textureWidth,
+                               float textureHeight);
+
+void drawParallaxLayer(GLuint textureID,
+                       float cameraLeft, float cameraBottom,
+                       float viewW, float viewH,
+                       float parallaxX, float parallaxY,
+                       float tileWorldW, float tileWorldH);

@@ -50,6 +50,9 @@ GLuint texPlayerLose = 0;
 
 // Texturas do Level 1
 GLuint texBackground = 0;
+GLuint texBackgroundFar = 0;
+GLuint texBackgroundMid = 0;
+GLuint texBackgroundNear = 0;
 GLuint texFloor = 0;
 GLuint texRiver = 0;
 GLuint texPlatform = 0;
@@ -120,7 +123,10 @@ void loadGameTextures() {
 
   // Texturas do Nível (caminho dinâmico)
   // TODOS os caminhos agora usam 'levelPath'
-  texBackground = loadTexture((levelPath + "background.png").c_str());
+  texBackgroundFar = loadTexture((levelPath + "bg-far.png").c_str());
+  texBackgroundMid = loadTexture((levelPath + "bg-mid.png").c_str());
+  texBackgroundNear = loadTexture((levelPath + "bg-near.png").c_str());
+
   texFloor = loadTexture((levelPath + "floor.png").c_str());
   texRiver = loadTexture((levelPath + "river.png").c_str());
   texPlatform = loadTexture((levelPath + "complete_platform.png").c_str());

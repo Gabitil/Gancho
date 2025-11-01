@@ -82,6 +82,9 @@ extern GLuint texPlayerLose;
 
 // Texturas dos Levels
 extern GLuint texBackground;
+extern GLuint texBackgroundFar;
+extern GLuint texBackgroundMid;
+extern GLuint texBackgroundNear;
 extern GLuint texFloor;
 extern GLuint texRiver;
 extern GLuint texPlatform;

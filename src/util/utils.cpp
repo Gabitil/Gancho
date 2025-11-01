@@ -81,6 +81,67 @@ void drawRect(float initX, float initY, float width, float height, float r,
   }
 }
 
+void drawParallaxLayer(GLuint textureID,
+                       float cameraLeft, float cameraBottom,
+                       float viewW, float viewH,
+                       float parallaxX, float parallaxY,
+                       float tileWorldW, float tileWorldH)
+{
+    if (textureID == 0) return;
+
+    // Quantos tiles cabem na tela (em coordenadas UV)
+    float uSpan = viewW / tileWorldW;
+    float vSpan = viewH / tileWorldH;
+
+    // Deslocamento UV conforme movimento da câmera
+    float uOffset = fmodf((cameraLeft * parallaxX) / tileWorldW, 1.0f);
+    float vOffset = fmodf((cameraBottom * parallaxY) / tileWorldH, 1.0f);
+    if (uOffset < 0.0f) uOffset += 1.0f;
+    if (vOffset < 0.0f) vOffset += 1.0f;
+
+    float u0 = uOffset;
+    float v0 = vOffset;
+    float u1 = uOffset + uSpan;
+    float v1 = vOffset + vSpan;
+
+    // Configuração de textura
+    glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4f(1, 1, 1, 1);
+
+    // --- FLIP USANDO MATRIZ ---
+    glPushMatrix();
+
+    // Move para o início da câmera
+    glTranslatef(cameraLeft, cameraBottom + viewH, 0.0f);
+
+    // Escala Y negativa: espelha verticalmente
+    glScalef(1.0f, -1.0f, 1.0f);
+
+    // Agora o quad é desenhado "virado" para o lado certo
+    glBegin(GL_QUADS);
+        glTexCoord2f(u0, v0); glVertex2f(0, 0);
+        glTexCoord2f(u1, v0); glVertex2f(viewW, 0);
+        glTexCoord2f(u1, v1); glVertex2f(viewW, viewH);
+        glTexCoord2f(u0, v1); glVertex2f(0, viewH);
+    glEnd();
+
+    glPopMatrix();
+
+    glDisable(GL_BLEND);
+    glDisable(GL_TEXTURE_2D);
+}
+
+
+
+
 /**
  * Desenha um retângulo usando uma textura, com repetição (tiling) de UVs.
  * Isso é ideal para chão e plataformas.
@@ -100,6 +161,7 @@ void drawRepeatingTexturedRect(float x, float y, float w, float h,
     glEnd();
     return;
   }
+  
 
   // Calcula quantas vezes a textura deve se repetir
   // textureWidth e textureHeight são as dimensões MUNDIAIS da textura base.
