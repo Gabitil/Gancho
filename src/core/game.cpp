@@ -254,7 +254,7 @@ void gameStartLevel(int level) {
           {1100, 0, WORLD_WIDTH - 1100, 40, 0.2f, 0.6f, 0.2f, true, 0.8f});
 
       // Plataformas suspensas
-      platforms.push_back({400, 250, 200, 50, 0.4f, 0.4f, 0.4f, true, 0.2f});
+      platforms.push_back({400, 240, 200, 50, 0.4f, 0.4f, 0.4f, true, 0.2f});
       platforms.push_back({750, 350, 250, 50, 0.4f, 0.4f, 0.4f, true, 0.15f});
       platforms.push_back({1200, 280, 200, 50, 0.4f, 0.4f, 0.4f, true, 0.25f});
       platforms.push_back({1600, 400, 300, 50, 0.4f, 0.4f, 0.4f, true, 0.1f});
@@ -390,13 +390,13 @@ void gameStartLevel(int level) {
           {2100, 40, 25, 160, 0.6f, 0.4f, 0.2f, 18.0f, false});
 
       // Muitos espinhos no chão
-      spikeZones.push_back({550, 40, 180, 30, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({250, 40, 180, 30, 1.0f, 0.0f, 0.0f});
       spikeZones.push_back({1500, 40, 200, 30, 1.0f, 0.0f, 0.0f});
       spikeZones.push_back({2150, 40, 220, 30, 1.0f, 0.0f, 0.0f});
       spikeZones.push_back({2650, 40, 180, 30, 1.0f, 0.0f, 0.0f});
 
       // Espinhos nas plataformas (teto e piso)
-      spikeZones.push_back({200, 320, 150, 25, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({300, 320, 150, 25, 1.0f, 0.0f, 0.0f});
       spikeZones.push_back({600, 465, 180, 25, 1.0f, 0.0f, 0.0f});
       spikeZones.push_back({900, 365, 160, 25, 1.0f, 0.0f, 0.0f});
       spikeZones.push_back({1200, 495, 200, 25, 1.0f, 0.0f, 0.0f});
@@ -1090,7 +1090,7 @@ void gameDisplay() {
       Platform* platform = &platforms[i];
 
       // Plataforma 0 é o chão
-      if (i == 0) {
+      if (platform->y == 0) {
         drawTexturedRect(platform->x, platform->y, platform->w, platform->h,
                          texFloor);
       } else {
