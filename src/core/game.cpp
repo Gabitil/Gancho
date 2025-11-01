@@ -269,7 +269,7 @@ void gameStartLevel(int level) {
 
       // Paredes quebráveis
       breakableWalls.push_back(
-          {1400, 40, 40, 180, 0.6f, 0.4f, 0.2f, 25.0f, false});
+          {1400, 40, 40, 180, 0.6f, 0.4f, 0.2f, 40.0f, false});
       breakableWalls.push_back(
           {2400, 40, 40, 200, 0.6f, 0.4f, 0.2f, 30.0f, false});
 
