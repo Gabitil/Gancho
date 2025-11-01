@@ -396,7 +396,7 @@ void gameStartLevel(int level) {
       spikeZones.push_back({2650, 40, 180, 30, 1.0f, 0.0f, 0.0f});
 
       // Espinhos nas plataformas (teto e piso)
-      spikeZones.push_back({300, 320, 150, 25, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({200, 320, 150, 25, 1.0f, 0.0f, 0.0f});
       spikeZones.push_back({600, 465, 180, 25, 1.0f, 0.0f, 0.0f});
       spikeZones.push_back({900, 365, 160, 25, 1.0f, 0.0f, 0.0f});
       spikeZones.push_back({1200, 495, 200, 25, 1.0f, 0.0f, 0.0f});
