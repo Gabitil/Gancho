@@ -271,7 +271,7 @@ void gameStartLevel(int level) {
       breakableWalls.push_back(
           {1400, 40, 40, 180, 0.6f, 0.4f, 0.2f, 40.0f, false});
       breakableWalls.push_back(
-          {2400, 40, 40, 200, 0.6f, 0.4f, 0.2f, 30.0f, false});
+          {2400, 40, 40, 200, 0.6f, 0.4f, 0.2f, 80.0f, false});
 
       // Espinhos no chão
       spikeZones.push_back({200, 40, 150, 30, 1.0f, 0.0f, 0.0f});
@@ -324,9 +324,9 @@ void gameStartLevel(int level) {
 
       // Paredes quebráveis
       breakableWalls.push_back(
-          {1100, 40, 35, 120, 0.6f, 0.4f, 0.2f, 18.0f, false});
+          {1100, 40, 35, 120, 0.6f, 0.4f, 0.2f, 40.0f, false});
       breakableWalls.push_back(
-          {2000, 40, 35, 150, 0.6f, 0.4f, 0.2f, 20.0f, false});
+          {2000, 40, 35, 150, 0.6f, 0.4f, 0.2f, 70.0f, false});
 
       // Espinhos no chão
       spikeZones.push_back({150, 40, 120, 30, 1.0f, 0.0f, 0.0f});
@@ -385,12 +385,12 @@ void gameStartLevel(int level) {
 
       // Paredes quebráveis resistentes
       breakableWalls.push_back(
-          {1300, 40, 25, 140, 0.6f, 0.4f, 0.2f, 15.0f, false});
+          {1300, 40, 25, 140, 0.6f, 0.4f, 0.2f, 60.0f, false});
       breakableWalls.push_back(
-          {2100, 40, 25, 160, 0.6f, 0.4f, 0.2f, 18.0f, false});
+          {2100, 40, 25, 160, 0.6f, 0.4f, 0.2f, 100.0f, false});
 
       // Muitos espinhos no chão
-      spikeZones.push_back({250, 40, 180, 30, 1.0f, 0.0f, 0.0f});
+      spikeZones.push_back({200, 40, 180, 30, 1.0f, 0.0f, 0.0f});
       spikeZones.push_back({1500, 40, 200, 30, 1.0f, 0.0f, 0.0f});
       spikeZones.push_back({2150, 40, 220, 30, 1.0f, 0.0f, 0.0f});
       spikeZones.push_back({2650, 40, 180, 30, 1.0f, 0.0f, 0.0f});
