@@ -55,7 +55,6 @@ endif
 	@echo --- Jogo finalizado ---
 
 limpar:
-	@echo Limpando arquivos...
 	$(call RM,$(OBJ_DIR))
 	$(call RM,$(BIN_DIR))
 	@echo Limpeza concluída.

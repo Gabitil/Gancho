@@ -83,7 +83,7 @@ Em Windows, utilize um terminal do MinGW ou similar e execute `mingw32-make` com
 
 ## Vídeo de Gameplay
 
-Assista à demonstração completa do jogo em: https://youtu.be/INSIRA_O_LINK_DO_VIDEO
+Assista à demonstração completa do jogo em: https://youtu.be/35w8977BUvI
 
 ---
 
