@@ -2,6 +2,7 @@
 
 #include "GL/stb_image.h"
 #include "game.h"
+#include "game_3D.h"
 // #include <stdio.h>
 #include <math.h>
 // #include <string>

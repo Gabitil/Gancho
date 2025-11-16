@@ -14,7 +14,9 @@
 enum MenuOption {
     NONE,
     START_GAME,
+    START_GAME_3D,
     HOW_TO_PLAY,
+    HOW_TO_PLAY_3D,
     EXIT_GAME
 };
 
