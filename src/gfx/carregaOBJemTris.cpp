@@ -7,6 +7,45 @@
 GLuint vboModelo = 0;
 std::vector<tri> modelo;
 
+/**
+ * @brief Carrega um arquivo OBJ e converte suas faces em triângulos (estrutura tri).
+ *
+ * Esta função usa tinyobjloader para ler um arquivo .obj especificado por 'caminho'
+ * e preenche o vetor de saída 'out' com triângulos (tipo tri), um por face triangulada.
+ * Ela processa posições, normais, coordenadas de textura e atribui uma cor padrão por vértice.
+ *
+ * Comportamento detalhado:
+ * - Invoca tinyobj::LoadObj para popular tinyobj::attrib_t, shapes e materials.
+ * - Usa "models/" como diretório base para resolução de materiais/texturas (pode ser ajustado).
+ * - Para cada shape, percorre os índices agrupados em conjuntos de 3 (triângulos) e constrói um tri:
+ *   - Preenche v[].pos a partir de attrib.vertices (x,y,z).
+ *   - Se houver normal_index válido (>= 0), preenche v[].normal a partir de attrib.normals;
+ *     caso contrário atribui a normal padrão (0, 1, 0).
+ *   - Se houver texcoord_index válido (>= 0), preenche v[].tex a partir de attrib.texcoords (u,v);
+ *     caso contrário usa (0,0).
+ *   - Define v[].cor como branca (1.0f, 1.0f, 1.0f, 1.0f).
+ * - Adiciona cada tri construído ao vetor 'out' (usando push_back).
+ * - Exibe avisos (warn) e erros (err) via std::cout / std::cerr.
+ * - Em caso de falha no carregamento (ret == false) chama exit(1), terminando o processo.
+ * - Ao final imprime o número total de triângulos carregados.
+ *
+ * Parâmetros:
+ * @param caminho  Caminho do arquivo .obj a ser carregado (std::string).
+ * @param out      Vetor de saída (std::vector<tri>&) que receberá os triângulos.
+ *                 Observação: a função acrescenta elementos a 'out'; ela NÃO limpa 'out' antes.
+ *
+ * Efeitos colaterais / observações:
+ * - A função usa saída padrão para mensagens e encerra o processo em erro crítico.
+ * - Pressupõe a existência da struct 'tri' com campos v[].pos, v[].normal, v[].tex, v[].cor.
+ * - Índices em tinyobj podem ser negativos quando não há dado correspondente; a função
+ *   já trata normais/texcoords ausentes com valores padrão.
+ * - Para melhor desempenho em grandes modelos, recomenda-se reservar espaço em 'out'
+ *   antes da chamada (out.reserve(...)).
+ *
+ * Recomendações:
+ * - Ajustar baseDir conforme necessário para que materiais/texture paths sejam resolvidos.
+ * - Validar a existência do arquivo externamente se não desejar que a função finalize o programa.
+ */
 void carregaOBJemTris(const std::string& caminho, std::vector<tri>& out) {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
