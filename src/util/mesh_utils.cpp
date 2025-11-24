@@ -1,11 +1,13 @@
-// mesh_utils.cpp
-#include <GL/glew.h>      // PRIMEIRO
+#include "mesh_utils.h" // Traz cstdint, cstddef e glew.h
+
+#include <GL/freeglut.h> // Agora sim pode incluir freeglut
+// gl.h e glu.h geralmente já vêm com freeglut, mas se precisar:
 #include <GL/gl.h>
 #include <GL/glu.h>
-#include <GL/freeglut.h>
-#include "mesh_utils.h"
-#include <cstdlib>  // malloc, free
-#include <cstring>  // memcpy
+
+#include <cstdlib>
+#include <cstring>
+#include <cstdio>
 
 // Layout: pos(3) + cor(4) + tex(2) + normal(3) = 12 floats por vértice
 static const int FLOATS_POS    = 3;

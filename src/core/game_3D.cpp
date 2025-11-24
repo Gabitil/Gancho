@@ -1,627 +1,531 @@
-#include "game_3D.h"
-#include <GL/freeglut.h>
+// Header correspondente primeiro
+#include "game_3D.h" 
+
+// Bibliotecas padrão
 #include <stdio.h>
-// Necessário para M_PI e funções sin/cos
-#define _USE_MATH_DEFINES
 #include <cmath>
+#include <vector>
+#include <algorithm>
+
+// Utilitários
+#include "mesh_utils.h"
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 // =================================================================================
-// ESTRUTURAS E VARIÁVEIS GLOBAIS (apenas para este módulo 3D)
+// ESTRUTURAS INTERNAS
 // =================================================================================
 
-// Estrutura simples para vetores 3D
-struct Vector3D {
-    float x, y, z;
-};
+struct Vector3D { float x, y, z; };
 
-// Estrutura para o nosso jogador 3D
 struct Player3D {
-    Vector3D pos;   // Posição (centro da caixa)
-    Vector3D vel;   // Velocidade
-    Vector3D size;  // Tamanho (largura, altura, profundidade)
+    Vector3D pos;
+    Vector3D vel;
+    Vector3D size;
 };
 
-// [2D-LOGIC] Estrutura movida do 2D para armazenar parâmetros de física
-struct LevelParameters {
-    // [2D-LOGIC] float gravity; (Usaremos a gravidade 3D)
-    // [2D-LOGIC]
+struct Platform3D {
+    float x, y, z;
+    float w, h, d;
+    float r, g, b; // Cor
+    float friction;
+    bool isHookable;
+};
+
+struct WindZone3D {
+    float x, y, z;
+    float w, h, d;
+    Vector3D force;
+};
+
+struct BreakableWall3D {
+    float x, y, z;
+    float w, h, d;
+    float strength;
+    bool isBroken;
+};
+
+struct SpikeZone3D {
+    float x, y, z;
+    float w, h, d;
+};
+
+struct LevelParameters3D {
     float playerMass;
-    // [2D-LOGIC]
     float playerWalkAccel;
-    // [2D-LOGIC]
     float maxWalkSpeed;
-    // [2D-LOGIC]
     float maxPlayerSpeed;
-    // [2D-LOGIC] float dampingFactor; (Para o gancho)
-    // [2D-LOGIC] float hookSpeed; (Para o gancho)
-    // [2D-LOGIC] float maxPullStrengthPhysics; (Para o gancho)
-    // [2D-LOGIC]
     float vectorVisualScale;
-    // [2D-LOGIC] int maxShots; (Para o gancho)
-
-    // NOVO (3D): Adicionado para simular o atrito do "chão" (plataforma 0 do 2D)
-    float floorFrictionCoefficient;
 };
-// [2D-LOGIC]
-LevelParameters levelParameters_3D;
 
+// =================================================================================
+// VARIÁVEIS GLOBAIS
+// =================================================================================
 
-// --- Variáveis de Estado do Jogo 3D ---
+// Estados do Jogo
+bool isGameOver_3D = false;
+bool isGrounded_3D = false;
+static bool isGameVictory_3D = false; // Adicionado static para evitar conflito
+static int victoryTimer_3D = 0;
+
+// VBO Global
+GLuint cubeVBO = 0; // Armazena o ID do VBO do cubo unitário
+
+// Jogador e Física
 Player3D player3D;
-const float WORLD_SIZE = 100.0f; // Tamanho do nosso "chão" (de -100 a +100)
-const float FLOOR_Y = 0.0f;      // Posição Y do chão
+LevelParameters3D levelParams_3D;
+const float GRAVITY_3D = -20.0f;
 
-// --- Variáveis de Controle da Câmera ---
-float cameraYaw = 0.0f;     // Rotação horizontal (controlada pelo mouse X)
-float cameraPitch = 20.0f;  // Rotação vertical (controlada pelo mouse Y)
-float cameraDistance = 15.0f; // Distância da câmera ao jogador
+// Objetos do Mundo
+std::vector<Platform3D> platforms3D;
+std::vector<WindZone3D> windZones3D;
+std::vector<BreakableWall3D> walls3D;
+std::vector<SpikeZone3D> spikes3D;
 
-// NOVO: Variáveis para controle do mouse relativo
-static int windowWidth = 800;  // Valor padrão
-static int windowHeight = 600; // Valor padrão
+// Variáveis de Controle de Janela e Mouse
+static int windowWidth = 800;
+static int windowHeight = 600;
+bool isMouseFree = false;
 bool mouseInitialized = false;
 
-// --- Variáveis de Input ---
-bool keyW = false, keyA = false, keyS = false, keyD = false;
-bool isGrounded_3D = true;
+// Câmera
+float cameraYaw = 0.0f;
+float cameraPitch = 20.0f;
+float cameraDistance = 25.0f;
 
-// Variável para controlar se o cursor está livre (fora do modo FPS)
-bool isMouseFree = false;
+// Input Teclado
+bool keyW = false;
+bool keyA = false;
+bool keyS = false;
+bool keyD = false;
 
-// --- IDs das Display Lists (Requisito Técnico) ---
-GLuint floorListID = 0;
-
-// --- Parâmetros de Física ---
-// const float PLAYER_MOVE_SPEED = 10.0f; // [REMOVIDO] Substituído pela lógica 2D (levelParameters_3D)
-const float GRAVITY = -20.0f;
-const float MOUSE_SENSITIVITY = 0.2f;
-
-// [2D-LOGIC] Constante para visualização do vetor velocidade
-// [2D-LOGIC]
-const float VELOCITY_VISUAL_SCALE = 7.0f;
-
-// --- [2D-LOGIC] Variáveis de Força e Aceleração (Adaptadas do 2D) ---
-// [2D-LOGIC]
-float forceNormal_3D = 0;
-// [2D-LOGIC]
+// Vetores de Debug
 Vector3D forceFriction_3D = {0, 0, 0};
-// [2D-LOGIC]
-Vector3D forceTension_3D = {0, 0, 0}; // (Para o gancho, no futuro)
-// [2D-LOGIC]
-float lastVelocityMag_3D = 0.0f;
-// [2D-LOGIC]
-float currentAcceleration_3D = 0.0f;
-
 
 // =================================================================================
-// FUNÇÕES AUXILIARES
+// FUNÇÕES AUXILIARES: GEOMETRIA
 // =================================================================================
 
-/**
- * Função auxiliar para desenhar texto em 3D (para os vetores)
- */
-void drawText3D(float x, float y, float z, const char* text) {
-    glRasterPos3f(x, y, z);
-    while (*text) {
-        glutBitmapCharacter(GLUT_BITMAP_9_BY_15, *text);
-        text++;
-    }
+// Helper para preencher a struct vert definida em mesh_utils.h
+vert makeVert(float x, float y, float z, float r, float g, float b, float u, float v, float nx, float ny, float nz) {
+    vert ver;
+    ver.pos[0] = x; ver.pos[1] = y; ver.pos[2] = z;
+    ver.cor[0] = r; ver.cor[1] = g; ver.cor[2] = b; ver.cor[3] = 1.0f;
+    ver.tex[0] = u; ver.tex[1] = v;
+    ver.normal[0] = nx; ver.normal[1] = ny; ver.normal[2] = nz;
+    return ver;
 }
 
-/**
- * Função auxiliar para desenhar vetores 3D (Adaptada da lógica 2D)
- */
-void drawVector3D(Vector3D start, Vector3D vector, float scale, float r, float g, float b, const char* label) {
-    // Cálculo do ponto final bruto
-    Vector3D end;
-    
-    bool isForce = (label[0] != 'V'); 
-    float finalScale = scale;
-    
-    Vector3D vecToDraw = vector;
+// Cria um cubo unitário (1x1x1) centrado na origem
+std::vector<tri> createUnitCubeTris() {
+    std::vector<tri> tris;
+    float d = 0.5f; // Metade do tamanho
+    float r = 1, g = 1, b = 1; // Cor base branca (modularemos no desenho)
 
-    if (isForce) {
-        if (levelParameters_3D.playerMass <= 0.001f) return;
-        vecToDraw.x /= levelParameters_3D.playerMass;
-        vecToDraw.y /= levelParameters_3D.playerMass;
-        vecToDraw.z /= levelParameters_3D.playerMass;
-    }
+    // Frente (+Z)
+    tris.push_back({ makeVert(-d,-d, d, r,g,b, 0,0, 0,0,1), makeVert( d,-d, d, r,g,b, 1,0, 0,0,1), makeVert( d, d, d, r,g,b, 1,1, 0,0,1) });
+    tris.push_back({ makeVert(-d,-d, d, r,g,b, 0,0, 0,0,1), makeVert( d, d, d, r,g,b, 1,1, 0,0,1), makeVert(-d, d, d, r,g,b, 0,1, 0,0,1) });
 
-    // --- CORREÇÃO: LIMITADOR DE TAMANHO (CLAMPING) ---
-    // Tamanho máximo reduzido para 3 vezes a altura do personagem
-    float maxLen = 3.0f * player3D.size.y; 
-    float currentLen = sqrt(vecToDraw.x*vecToDraw.x + vecToDraw.y*vecToDraw.y + vecToDraw.z*vecToDraw.z) * finalScale;
+    // Trás (-Z)
+    tris.push_back({ makeVert( d,-d,-d, r,g,b, 0,0, 0,0,-1), makeVert(-d,-d,-d, r,g,b, 1,0, 0,0,-1), makeVert(-d, d,-d, r,g,b, 1,1, 0,0,-1) });
+    tris.push_back({ makeVert( d,-d,-d, r,g,b, 0,0, 0,0,-1), makeVert(-d, d,-d, r,g,b, 1,1, 0,0,-1), makeVert( d, d,-d, r,g,b, 0,1, 0,0,-1) });
 
-    if (currentLen > maxLen && currentLen > 0.001f) {
-        // Reduz a escala para caber no tamanho máximo mantendo a proporção
-        finalScale = finalScale * (maxLen / currentLen);
-    }
+    // Esquerda (-X)
+    tris.push_back({ makeVert(-d,-d,-d, r,g,b, 0,0, -1,0,0), makeVert(-d,-d, d, r,g,b, 1,0, -1,0,0), makeVert(-d, d, d, r,g,b, 1,1, -1,0,0) });
+    tris.push_back({ makeVert(-d,-d,-d, r,g,b, 0,0, -1,0,0), makeVert(-d, d, d, r,g,b, 1,1, -1,0,0), makeVert(-d, d,-d, r,g,b, 0,1, -1,0,0) });
 
-    // Recalcula o tamanho atual para verificação de desenho mínimo
-    currentLen = sqrt(vecToDraw.x*vecToDraw.x + vecToDraw.y*vecToDraw.y + vecToDraw.z*vecToDraw.z) * finalScale;
+    // Direita (+X)
+    tris.push_back({ makeVert( d,-d, d, r,g,b, 0,0, 1,0,0), makeVert( d,-d,-d, r,g,b, 1,0, 1,0,0), makeVert( d, d,-d, r,g,b, 1,1, 1,0,0) });
+    tris.push_back({ makeVert( d,-d, d, r,g,b, 0,0, 1,0,0), makeVert( d, d,-d, r,g,b, 1,1, 1,0,0), makeVert( d, d, d, r,g,b, 0,1, 1,0,0) });
 
-    end.x = start.x + vecToDraw.x * finalScale;
-    end.y = start.y + vecToDraw.y * finalScale;
-    end.z = start.z + vecToDraw.z * finalScale;
+    // Cima (+Y)
+    tris.push_back({ makeVert(-d, d, d, r,g,b, 0,0, 0,1,0), makeVert( d, d, d, r,g,b, 1,0, 0,1,0), makeVert( d, d,-d, r,g,b, 1,1, 0,1,0) });
+    tris.push_back({ makeVert(-d, d, d, r,g,b, 0,0, 0,1,0), makeVert( d, d,-d, r,g,b, 1,1, 0,1,0), makeVert(-d, d,-d, r,g,b, 0,1, 0,1,0) });
 
-    // Se o vetor for muito pequeno (quase zero), não desenha para não poluir
-    if (currentLen < 0.1f) return;
+    // Baixo (-Y)
+    tris.push_back({ makeVert(-d,-d,-d, r,g,b, 0,0, 0,-1,0), makeVert( d,-d,-d, r,g,b, 1,0, 0,-1,0), makeVert( d,-d, d, r,g,b, 1,1, 0,-1,0) });
+    tris.push_back({ makeVert(-d,-d,-d, r,g,b, 0,0, 0,-1,0), makeVert( d,-d, d, r,g,b, 1,1, 0,-1,0), makeVert(-d,-d, d, r,g,b, 0,1, 0,-1,0) });
 
-    // 1. Desenha a Linha do Vetor
-    glDisable(GL_LIGHTING);
-    glLineWidth(3.0f); 
-    glColor3f(r, g, b);
+    return tris;
+}
 
-    glBegin(GL_LINES);
-        glVertex3f(start.x, start.y, start.z);
-        glVertex3f(end.x, end.y, end.z);
-    glEnd();
-
-    // Desenha uma pequena "ponta"
+// Função para desenhar o cubo instanciado usando o VBO
+void drawCubeInstance(float x, float y, float z, float w, float h, float d, float r, float g, float b, float a) {
     glPushMatrix();
-        glTranslatef(end.x, end.y, end.z);
-        glutSolidCube(0.05f); 
-    glPopMatrix();
-
-    // 2. Desenha o Texto (Label)
-    glDisable(GL_DEPTH_TEST); // Garante que o texto fique "na frente"
-    glColor3f(1.0f, 1.0f, 1.0f); 
+    glTranslatef(x, y, z);
+    glScalef(w, h, d); // Escala o cubo unitário para o tamanho desejado
     
-    glRasterPos3f(end.x, end.y + 0.2f, end.z);
-    
-    const char* c = label;
-    while (*c) {
-        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *c);
-        c++;
+    // Se alpha for menor que 1, habilita blend
+    if (a < 0.99f) {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask(GL_FALSE); // Não escreve no Z-buffer se for transparente
     }
+
+    glColor4f(r, g, b, a);
     
-    glEnable(GL_DEPTH_TEST);
+    // Chama a função do mesh_utils para desenhar
+    // 12 triângulos no cubo (2 por face * 6 faces)
+    desenhaTrisComVBO(cubeVBO, 12); 
+
+    if (a < 0.99f) {
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
+    }
+    glPopMatrix();
+}
+
+// Desenha vetores de debug
+void drawVector3D(Vector3D start, Vector3D vector, float scale, float r, float g, float b, const char* label) {
+    if (fabs(vector.x) + fabs(vector.y) + fabs(vector.z) < 0.01f) return;
+    glDisable(GL_LIGHTING);
+    glLineWidth(2.0f);
+    glColor3f(r, g, b);
+    glBegin(GL_LINES);
+    glVertex3f(start.x, start.y, start.z);
+    glVertex3f(start.x + vector.x * scale, start.y + vector.y * scale, start.z + vector.z * scale);
+    glEnd();
     glEnable(GL_LIGHTING);
-    glLineWidth(1.0f);
 }
 
-
-/**
- * Cria as Display Lists para os objetos estáticos do mundo (chão).
- */
-void createWorldDisplayLists() {
-    // 1. Deletar listas antigas se existirem
-    if (floorListID != 0) glDeleteLists(floorListID, 1);
-
-    // 2. Criar a Display List do Chão (ALTERADO)
-    floorListID = glGenLists(1);
-    glNewList(floorListID, GL_COMPILE);
-        // Desabilita iluminação para a grade (para a cor ser pura)
-        glDisable(GL_LIGHTING);
-        glLineWidth(1.0f);
-        glColor3f(0.4f, 0.4f, 0.4f); // Cor da grade (cinza escuro)
-
-        glBegin(GL_LINES);
-        // Desenha linhas ao longo do eixo Z (variando X)
-        for (float i = -WORLD_SIZE; i <= WORLD_SIZE; i += 1.0f) { // Espaçamento de 1 unidade
-            glVertex3f(i, FLOOR_Y, -WORLD_SIZE);
-            glVertex3f(i, FLOOR_Y,  WORLD_SIZE);
-        }
-        // Desenha linhas ao longo do eixo X (variando Z)
-        for (float i = -WORLD_SIZE; i <= WORLD_SIZE; i += 1.0f) {
-            glVertex3f(-WORLD_SIZE, FLOOR_Y, i);
-            glVertex3f( WORLD_SIZE, FLOOR_Y, i);
-        }
-        glEnd();
-        // Reabilita a iluminação para o resto da cena
-        glEnable(GL_LIGHTING);
-    glEndList();
+// Função simples de colisão AABB (Caixa vs Caixa)
+bool checkCollisionAABB(float x1, float y1, float z1, float w1, float h1, float d1,
+                        float x2, float y2, float z2, float w2, float h2, float d2) {
+    return (x1 - w1/2 < x2 + w2/2 && x1 + w1/2 > x2 - w2/2) &&
+           (y1 - h1/2 < y2 + h2/2 && y1 + h1/2 > y2 - h2/2) &&
+           (z1 - d1/2 < z2 + d2/2 && z1 + d1/2 > z2 - d2/2);
 }
 
 // =================================================================================
-// IMPLEMENTAÇÃO DA API game_3D.h
+// FUNÇÕES DO JOGO (EXPOSTAS NO HEADER)
 // =================================================================================
 
-/**
- * Chamada quando o nível 3D é iniciado.
- */
+void gameInit_3D() {
+    // Inicializações únicas se necessário
+}
+
 void gameStartLevel_3D(int level) {
     printf("gameStartLevel_3D() chamado para o nivel %d.\n", level);
 
-    // --- Configuração do OpenGL ---
-    glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
-    glEnable(GL_COLOR_MATERIAL);
-    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
-    glClearColor(0.1f, 0.1f, 0.3f, 1.0f);
+    // Inicializa VBO se ainda não foi criado
+    if (cubeVBO == 0) {
+        std::vector<tri> cubeTris = createUnitCubeTris();
+        cubeVBO = criaVBODeTris((int)cubeTris.size(), cubeTris.data());
+        printf("VBO Criado. ID: %d\n", cubeVBO);
+    }
 
-    // --- Inicialização do Jogo ---
-    player3D.pos = {0.0f, 3.0f, 0.0f};
-    player3D.vel = {0.0f, 0.0f, 0.0f};
-    player3D.size = {1.0f, 2.0f, 1.0f};
-
-    keyW = keyA = keyS = keyD = false;
-    cameraYaw = 0.0f;
-    cameraPitch = 20.0f;
-
-    // --- Parâmetros de Física (Ajustados) ---
-    levelParameters_3D.playerMass = 10.0f;
-    
-    // CORREÇÃO: Aceleração aumentada para 60.0f para vencer o atrito (que é aprox 16.0f)
-    levelParameters_3D.playerWalkAccel = 60.0f; 
-    
-    levelParameters_3D.maxWalkSpeed = 15.0f; // Um pouco mais rápido para 3D
-    levelParameters_3D.maxPlayerSpeed = 40.0f;
-    levelParameters_3D.floorFrictionCoefficient = 0.8f; 
-    levelParameters_3D.vectorVisualScale = 0.5f; // Escala visual ajustada
-    
-    // Resetar variáveis
-    lastVelocityMag_3D = 0.0f;
-    currentAcceleration_3D = 0.0f;
-    forceNormal_3D = 0;
-    forceFriction_3D = {0,0,0};
-    forceTension_3D = {0,0,0};
-    isGrounded_3D = true;
-
-    // Mouse setup
-    glutSetCursor(GLUT_CURSOR_NONE);
     int w = glutGet(GLUT_WINDOW_WIDTH);
     int h = glutGet(GLUT_WINDOW_HEIGHT);
-    gameReshape_3D(w, h);
-    glutWarpPointer(windowWidth / 2, windowHeight / 2);
-    mouseInitialized = false;
+    gameReshape_3D(w, h); // Força a projeção perspectiva
 
-    createWorldDisplayLists();
+    // Limpa listas
+    platforms3D.clear();
+    windZones3D.clear();
+    walls3D.clear();
+    spikes3D.clear();
+
+    // Reseta Player
+    player3D.pos = {0.0f, 5.0f, 10.0f};
+    player3D.vel = {0.0f, 0.0f, 0.0f};
+    player3D.size = {1.5f, 3.0f, 1.5f};
+
+    // Configurações do Nível
+    levelParams_3D.playerMass = 10.0f;
+    levelParams_3D.playerWalkAccel = 80.0f; // Aumentei para resposta mais rápida
+    levelParams_3D.maxWalkSpeed = 15.0f;
+    levelParams_3D.vectorVisualScale = 0.5f;
+
+    isGameOver_3D = false;
+    isGameVictory_3D = false;
+    isGrounded_3D = false;
+    
+    // Configura Mouse
+    glutSetCursor(GLUT_CURSOR_NONE);
+    if(windowWidth > 0 && windowHeight > 0)
+        glutWarpPointer(windowWidth / 2, windowHeight / 2);
+    mouseInitialized = false;
+    isMouseFree = false;
+
+    // --- CONSTRUÇÃO DO NÍVEL 1 ---
+    if (level == 1) {
+        // Plataforma Inicial (Chão Cinza)
+        platforms3D.push_back({0, -2, 10, 20, 4, 20, 0.6f, 0.6f, 0.6f, 0.8f, true});
+
+        // Corredor Longo
+        platforms3D.push_back({0, -2, -20, 10, 4, 40, 0.7f, 0.7f, 0.7f, 0.8f, true});
+
+        // Parede Quebrável (Vermelha)
+        walls3D.push_back({0, 2, -15, 10, 6, 2, 40.0f, false});
+
+        // Ponte de Gelo (Azul claro, atrito baixo 0.05)
+        platforms3D.push_back({0, -2, -60, 10, 4, 40, 0.6f, 0.8f, 1.0f, 0.05f, true});
+
+        // Fosso de Espinhos (Vermelho vivo)
+        spikes3D.push_back({0, -6, -85, 20, 2, 10});
+
+        // Plataforma de Aterrissagem (Roxa)
+        platforms3D.push_back({0, -2, -100, 15, 4, 15, 0.6f, 0.4f, 0.8f, 0.8f, true});
+
+        // Elevador de Vento (Semi-transparente)
+        windZones3D.push_back({0, 10, -115, 10, 30, 10, {0, 55.0f, 0}});
+
+        // Plataforma Final Alta (Verde)
+        platforms3D.push_back({0, 30, -130, 20, 2, 20, 0.2f, 0.8f, 0.2f, 0.8f, true});
+    }
 }
 
-/**
- * Loop principal de física e lógica do jogo.
- */
 GameAction gameUpdate_3D() {
-    // 1. Calcular DeltaTime
-    static int lastTime = 0;
-    if (lastTime == 0) lastTime = glutGet(GLUT_ELAPSED_TIME);
-    int currentTime = glutGet(GLUT_ELAPSED_TIME);
-    float dt = (float)(currentTime - lastTime) / 1000.0f;
-    lastTime = currentTime;
+    if (isGameOver_3D) return GAME_ACTION_CONTINUE;
 
-    // Evitar dt muito grande em travamentos (max 0.1s)
-    if (dt > 0.1f) dt = 0.1f;
+    // Delta Time fixo para estabilidade
+    float dt = 0.016f; 
 
-    // --- Cálculo de Aceleração para HUD ---
-    float currentVelocityMag = sqrt(player3D.vel.x * player3D.vel.x + 
-                                    player3D.vel.y * player3D.vel.y + 
-                                    player3D.vel.z * player3D.vel.z);
-    if (dt > 0.0001f) {
-        currentAcceleration_3D = (currentVelocityMag - lastVelocityMag_3D) / dt;
-    }
-    lastVelocityMag_3D = currentVelocityMag;
-
-    // Resetar forças visuais
-    forceNormal_3D = 0;
-    forceFriction_3D = {0,0,0};
-
-    // 2. Direção da Câmera
+    // Input e Direção da Câmera
     float yawRad = cameraYaw * M_PI / 180.0f;
     Vector3D forward = {-(float)sin(yawRad), 0, -(float)cos(yawRad)};
-    Vector3D right = {-forward.z, 0, forward.x};
+    Vector3D right = {-(float)cos(yawRad), 0, (float)sin(yawRad)}; // Cross product simplificado Y-up
 
-    // 3. Calcular Aceleração de Entrada (Input)
-    Vector3D inputAccel = {0, 0, 0};
-    
-    if (isGrounded_3D) {
-        if (keyW) { inputAccel.x += forward.x; inputAccel.z += forward.z; }
-        if (keyS) { inputAccel.x -= forward.x; inputAccel.z -= forward.z; }
-        // A/D corrigidos (Esquerda/Direita)
-        if (keyA) { inputAccel.x -= right.x;   inputAccel.z -= right.z; } 
-        if (keyD) { inputAccel.x += right.x;   inputAccel.z += right.z; }
+    Vector3D accel = {0, GRAVITY_3D, 0};
+    float moveForce = isGrounded_3D ? levelParams_3D.playerWalkAccel : levelParams_3D.playerWalkAccel * 0.3f;
 
-        // Normalizar vetor de entrada para não andar mais rápido na diagonal
-        float inputMag = sqrt(inputAccel.x*inputAccel.x + inputAccel.z*inputAccel.z);
-        if (inputMag > 0.01f) {
-            inputAccel.x /= inputMag;
-            inputAccel.z /= inputMag;
-            inputAccel.x *= levelParameters_3D.playerWalkAccel;
-            inputAccel.z *= levelParameters_3D.playerWalkAccel;
+    if (keyW) { accel.x += forward.x * moveForce; accel.z += forward.z * moveForce; }
+    if (keyS) { accel.x -= forward.x * moveForce; accel.z -= forward.z * moveForce; }
+    if (keyA) { accel.x -= right.x * moveForce;   accel.z -= right.z * moveForce; }
+    if (keyD) { accel.x += right.x * moveForce;   accel.z += right.z * moveForce; }
+
+    // Vento
+    for (const auto& wind : windZones3D) {
+        if (checkCollisionAABB(player3D.pos.x, player3D.pos.y, player3D.pos.z, player3D.size.x, player3D.size.y, player3D.size.z,
+                               wind.x, wind.y, wind.z, wind.w, wind.h, wind.d)) {
+            accel.x += wind.force.x;
+            accel.y += wind.force.y;
+            accel.z += wind.force.z;
         }
     }
 
-    // 4. Integrar Aceleração de Input na Velocidade (Tentativa de movimento)
-    player3D.vel.x += inputAccel.x * dt;
-    player3D.vel.z += inputAccel.z * dt;
+    // Integração (Euler)
+    player3D.vel.x += accel.x * dt;
+    player3D.vel.y += accel.y * dt;
+    player3D.vel.z += accel.z * dt;
 
-    // 5. Aplicar Atrito (Lógica do 2D adaptada)
-    if (isGrounded_3D) {
-        // Normal = Massa * Gravidade (em módulo)
-        forceNormal_3D = -GRAVITY * levelParameters_3D.playerMass; // Ex: 20 * 10 = 200N
-        
-        // Força de atrito máxima disponível = mu * N
-        float maxFrictionForce = levelParameters_3D.floorFrictionCoefficient * forceNormal_3D;
-        
-        // Desaceleração causada pelo atrito = Força / Massa
-        float frictionDecel = maxFrictionForce / levelParameters_3D.playerMass; // = mu * g
+    // Atrito (Damping) horizontal
+    float friction = 0.92f; // Padrão ar
+    
+    // Detectar colisões com plataformas para chão e atrito
+    isGrounded_3D = false;
+    forceFriction_3D = {0,0,0};
+    
+    // Predição de posição Y para colisão
+    float nextY = player3D.pos.y + player3D.vel.y * dt;
 
-        // Velocidade atual no plano XZ
-        float speedXZ = sqrt(player3D.vel.x*player3D.vel.x + player3D.vel.z*player3D.vel.z);
-
-        if (speedXZ > 0.001f) {
-            // Se a velocidade é muito baixa e o atrito é forte o suficiente para parar tudo num frame:
-            if (speedXZ < frictionDecel * dt) {
-                // Pára completamente (Atrito estático/parada final)
-                // Mas só pára se não houver input forte tentando mover
-                float inputLen = sqrt(inputAccel.x*inputAccel.x + inputAccel.z*inputAccel.z);
-                if (inputLen < frictionDecel) { 
-                     player3D.vel.x = 0;
-                     player3D.vel.z = 0;
-                }
-            } else {
-                // Atrito Cinético: Aplica força contrária à velocidade
-                float factorX = player3D.vel.x / speedXZ;
-                float factorZ = player3D.vel.z / speedXZ;
+    for (const auto& plat : platforms3D) {
+        if (checkCollisionAABB(player3D.pos.x, nextY, player3D.pos.z, player3D.size.x, player3D.size.y, player3D.size.z,
+                               plat.x, plat.y, plat.z, plat.w, plat.h, plat.d)) {
+            // Se estava caindo e bateu no topo
+            if (player3D.vel.y <= 0 && player3D.pos.y > plat.y) {
+                player3D.pos.y = plat.y + plat.h/2 + player3D.size.y/2;
+                player3D.vel.y = 0;
+                isGrounded_3D = true;
                 
-                player3D.vel.x -= factorX * frictionDecel * dt;
-                player3D.vel.z -= factorZ * frictionDecel * dt;
-
-                // Guarda vetor para visualização (aponta contra o movimento)
-                forceFriction_3D.x = -factorX * maxFrictionForce;
-                forceFriction_3D.z = -factorZ * maxFrictionForce;
+                // Aplica o atrito da plataforma (ex: 0.05 para gelo é muito escorregadio, 0.8 para chão para rápido)
+                // Formula simplificada de atrito: vel *= (1.0 - friction)
+                friction = 1.0f - (plat.friction * 0.1f); // Ajuste empírico
+                if (friction < 0) friction = 0;
             }
         }
     }
 
-    // 6. Aplicar Gravidade
-    player3D.vel.y += GRAVITY * dt;
+    // Aplica atrito em X e Z
+    player3D.vel.x *= friction;
+    player3D.vel.z *= friction;
 
-    // 7. Limitar Velocidade Máxima (Walk Speed) no XZ
-    if (isGrounded_3D) {
-        float speedXZ = sqrt(player3D.vel.x*player3D.vel.x + player3D.vel.z*player3D.vel.z);
-        if (speedXZ > levelParameters_3D.maxWalkSpeed) {
-            float ratio = levelParameters_3D.maxWalkSpeed / speedXZ;
-            player3D.vel.x *= ratio;
-            player3D.vel.z *= ratio;
+    // Paredes Quebráveis
+    float nextX = player3D.pos.x + player3D.vel.x * dt;
+    float nextZ = player3D.pos.z + player3D.vel.z * dt;
+
+    for (auto& wall : walls3D) {
+        if (!wall.isBroken) {
+            if (checkCollisionAABB(nextX, player3D.pos.y, nextZ, player3D.size.x, player3D.size.y, player3D.size.z,
+                                   wall.x, wall.y, wall.z, wall.w, wall.h, wall.d)) {
+                
+                float speed = sqrt(player3D.vel.x*player3D.vel.x + player3D.vel.z*player3D.vel.z);
+                float impact = speed * levelParams_3D.playerMass;
+
+                if (impact > wall.strength) {
+                    wall.isBroken = true;
+                    player3D.vel.x *= 0.5f;
+                    player3D.vel.z *= 0.5f;
+                } else {
+                    // Colisão sólida
+                    player3D.vel.x = 0;
+                    player3D.vel.z = 0;
+                    return GAME_ACTION_CONTINUE; // Impede movimento
+                }
+            }
         }
     }
 
-    // 8. Atualizar Posição
-    player3D.pos.x += player3D.vel.x * dt;
-    player3D.pos.y += player3D.vel.y * dt;
-    player3D.pos.z += player3D.vel.z * dt;
-
-    // 9. Colisão com o chão
-    float playerBottom = player3D.pos.y - (player3D.size.y / 2.0f);
-    if (playerBottom <= FLOOR_Y) {
-        player3D.pos.y = FLOOR_Y + (player3D.size.y / 2.0f);
-        player3D.vel.y = 0;
-        isGrounded_3D = true;
-    } else {
-        isGrounded_3D = false;
+    // Espinhos
+    for (const auto& spike : spikes3D) {
+        if (checkCollisionAABB(player3D.pos.x, player3D.pos.y, player3D.pos.z, player3D.size.x, player3D.size.y, player3D.size.z,
+                               spike.x, spike.y, spike.z, spike.w, spike.h, spike.d)) {
+            printf("MORREU NOS ESPINHOS!\n");
+            player3D.pos = {0, 5, 10}; // Respawn
+            player3D.vel = {0,0,0};
+        }
     }
 
-    // Limites do mundo
-    if (player3D.pos.x > WORLD_SIZE) player3D.pos.x = WORLD_SIZE;
-    if (player3D.pos.x < -WORLD_SIZE) player3D.pos.x = -WORLD_SIZE;
-    if (player3D.pos.z > WORLD_SIZE) player3D.pos.z = WORLD_SIZE;
-    if (player3D.pos.z < -WORLD_SIZE) player3D.pos.z = -WORLD_SIZE;
+    // Atualiza Posição Final
+    if(!isGrounded_3D) player3D.pos.y += player3D.vel.y * dt;
+    player3D.pos.x += player3D.vel.x * dt;
+    player3D.pos.z += player3D.vel.z * dt;
+
+    // Morte por queda
+    if (player3D.pos.y < -50.0f) {
+        player3D.pos = {0, 5, 10};
+        player3D.vel = {0,0,0};
+    }
 
     return GAME_ACTION_CONTINUE;
 }
 
-/**
- * Loop principal de renderização.
- */
 void gameDisplay_3D() {
-    // 1. Limpar buffers
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // Setup de Iluminação
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    glEnable(GL_LIGHT1);
+    glEnable(GL_COLOR_MATERIAL);
+    glEnable(GL_DEPTH_TEST);
 
-    // 2. Configurar Matriz ModelView
+    GLfloat lightPos0[] = { 50.0f, 100.0f, 50.0f, 1.0f };
+    glLightfv(GL_LIGHT0, GL_POSITION, lightPos0);
+
+    GLfloat lightPos1[] = { -50.0f, 20.0f, -50.0f, 1.0f };
+    GLfloat ambientColor[] = { 0.2f, 0.2f, 0.2f, 1.0f };
+    glLightfv(GL_LIGHT1, GL_POSITION, lightPos1);
+    glLightfv(GL_LIGHT1, GL_AMBIENT, ambientColor);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    // 3. Posicionar a Luz
-    GLfloat light_pos[] = {0.0f, 100.0f, 0.0f, 1.0f};
-    glLightfv(GL_LIGHT0, GL_POSITION, light_pos);
-
-    // 4. Calcular Posição da Câmera
+    // Posicionamento da Câmera
     float yawRad = cameraYaw * M_PI / 180.0f;
     float pitchRad = cameraPitch * M_PI / 180.0f;
+    float camX = player3D.pos.x + cameraDistance * cos(pitchRad) * sin(yawRad);
+    float camY = player3D.pos.y + cameraDistance * sin(pitchRad);
+    float camZ = player3D.pos.z + cameraDistance * cos(pitchRad) * cos(yawRad);
 
-    float offsetX = cameraDistance * cos(pitchRad) * sin(yawRad);
-    float offsetY = cameraDistance * sin(pitchRad);
-    float offsetZ = cameraDistance * cos(pitchRad) * cos(yawRad);
-
-    float camX = player3D.pos.x + offsetX;
-    float camY = player3D.pos.y + offsetY;
-    float camZ = player3D.pos.z + offsetZ;
-    
-    gluLookAt(camX, camY, camZ,
-              player3D.pos.x, player3D.pos.y, player3D.pos.z,
+    gluLookAt(camX, camY, camZ, 
+              player3D.pos.x, player3D.pos.y, player3D.pos.z, 
               0.0f, 1.0f, 0.0f);
 
-    // 5. Desenhar o Céu (Não mais uma lista, apenas limpa a cor)
-    // O glClearColor já define o fundo azul escuro.
-
-    // 6. Desenhar o Chão (Grade)
-    // A iluminação foi desabilitada dentro da Display List
-    glCallList(floorListID);
-
-    // 7. Desenhar o Jogador
-    glEnable(GL_LIGHTING); // Garante que a iluminação esteja ligada para o jogador
-    glPushMatrix();
-        glTranslatef(player3D.pos.x, player3D.pos.y, player3D.pos.z);
-        glScalef(player3D.size.x, player3D.size.y, player3D.size.z);
-        glColor3f(1.0f, 0.0f, 0.0f);
-        glutSolidCube(1.0);
-    glPopMatrix();
-
-
-    // 8. [2D-LOGIC] Desenhar Vetores Físicos
-    // [2D-LOGIC]
-    Vector3D playerCenter = player3D.pos; // Posição já é o centro
-
-    // [2D-LOGIC] drawVector(0, 0, 0, levelParameters_3D.gravity, ... "P");
-    // Adaptado para 3D: Vetor Peso (Força = m * g)
-    Vector3D forceP = {0, GRAVITY * levelParameters_3D.playerMass, 0};
-    // [2D-LOGIC]
-    drawVector3D(playerCenter, forceP, levelParameters_3D.vectorVisualScale, 0.2f, 0.2f, 1.0f, "P");
-
-    // [2D-LOGIC] float velMag = sqrt(player.velocityX * player.velocityX + ...
-    float velMag = sqrt(player3D.vel.x*player3D.vel.x + player3D.vel.y*player3D.vel.y + player3D.vel.z*player3D.vel.z);
-    // [2D-LOGIC]
-    if (velMag > 0.01) {
-        // [2D-LOGIC] drawVector(0, 0, player.velocityX, player.velocityY, ... "V");
-        // (player3D.vel já é um Vector3D)
-        // [2D-LOGIC]
-        drawVector3D(playerCenter, player3D.vel, VELOCITY_VISUAL_SCALE, 1.0f, 0.5f, 0.0f, "V");
-    }
-    
-    // [2D-LOGIC] if (isHooked) { ... "T" } (Ainda não implementado)
-
-    // [2D-LOGIC]
-    if (isGrounded_3D) {
-        // [2D-LOGIC] drawVector(0, -player.h / 2, 0, forceNormal, ... "N");
-        // Vetor Normal (N) aponta para cima, partindo da base do jogador
-        Vector3D normalStart = {playerCenter.x, playerCenter.y - (player3D.size.y / 2.0f), playerCenter.z};
-        Vector3D forceN = {0, forceNormal_3D, 0};
-        // [2D-LOGIC]
-        drawVector3D(normalStart, forceN, levelParameters_3D.vectorVisualScale, 0.0f, 1.0f, 1.0f, "N");
-
-        // [2D-LOGIC] if (fabs(forceFriction) > 0.001f) {
-        float frictionMag = sqrt(forceFriction_3D.x*forceFriction_3D.x + forceFriction_3D.z*forceFriction_3D.z);
-        // [2D-LOGIC]
-        if (frictionMag > 0.001f) {
-            // [2D-LOGIC] drawVector(0, -player.h / 2 + 5, forceFriction, 0, ... "Fat");
-            // Começa um pouco acima da base
-            Vector3D frictionStart = {normalStart.x, normalStart.y + 0.1f, normalStart.z};
-            // A força de atrito (forceFriction_3D) já é um Vector3D
-            // [2D-LOGIC]
-            drawVector3D(frictionStart, forceFriction_3D, levelParameters_3D.vectorVisualScale, 1.0f, 0.0f, 0.0f, "Fat");
+    // Se o VBO não foi criado por algum erro, desenha wireframes para não ficar tela preta
+    if (cubeVBO == 0) {
+        // Fallback de emergência
+        glColor3f(1,0,0);
+        glutWireCube(1.0);
+    } else {
+        // 1. Desenha Plataformas
+        for (const auto& p : platforms3D) {
+            drawCubeInstance(p.x, p.y, p.z, p.w, p.h, p.d, p.r, p.g, p.b, 1.0f);
         }
+
+        // 2. Desenha Paredes
+        for (const auto& w : walls3D) {
+            if (!w.isBroken) {
+                drawCubeInstance(w.x, w.y, w.z, w.w, w.h, w.d, 0.9f, 0.3f, 0.2f, 1.0f);
+            }
+        }
+
+        // 3. Desenha Vento
+        glDepthMask(GL_FALSE);
+        for (const auto& wz : windZones3D) {
+            drawCubeInstance(wz.x, wz.y, wz.z, wz.w, wz.h, wz.d, 0.6f, 0.8f, 1.0f, 0.4f);
+            drawVector3D({wz.x, wz.y, wz.z}, wz.force, 0.1f, 1.0f, 1.0f, 1.0f, "");
+        }
+        glDepthMask(GL_TRUE);
+
+        // 4. Desenha Espinhos
+        for (const auto& s : spikes3D) {
+            drawCubeInstance(s.x, s.y, s.z, s.w, s.h, s.d, 1.0f, 0.0f, 0.0f, 1.0f);
+        }
+
+        // 5. Desenha Player
+        drawCubeInstance(player3D.pos.x, player3D.pos.y, player3D.pos.z, 
+                         player3D.size.x, player3D.size.y, player3D.size.z, 
+                         0.2f, 0.8f, 0.2f, 1.0f);
     }
+
+    glutSwapBuffers();
 }
 
-/**
- * Chamada quando a janela é redimensionada.
- */
 void gameReshape_3D(int w, int h) {
-    // Atualiza as variáveis globais imediatamente
-    windowWidth = w;
+    windowWidth = w; 
     windowHeight = h;
-
     if (h == 0) h = 1;
-    float ratio = 1.0f * w / h;
-
-    // Configura a Viewport
     glViewport(0, 0, w, h);
-
-    // Configura a Matriz de Projeção
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(45.0f, ratio, 0.1f, 1000.0f);
-    
-    // Volta para ModelView para não afetar renderizações futuras
+    gluPerspective(45.0f, (float)w/h, 0.1f, 1000.0f);
     glMatrixMode(GL_MODELVIEW);
 }
 
-/**
- * Chamada quando o mouse se move (ativo ou passivo).
- */
-/**
- * Chamada quando o mouse se move (ativo ou passivo).
- */
 void gameMouseMotion_3D(int x, int y) {
-    // Se o mouse estiver livre (modo menu/pausa), não rotaciona a câmera
     if (isMouseFree) return;
-
-    // Calcula o centro da tela
-    int centerX = windowWidth / 2;
-    int centerY = windowHeight / 2;
     
+    int cx = windowWidth / 2;
+    int cy = windowHeight / 2;
+
     if (!mouseInitialized) {
+        glutWarpPointer(cx, cy);
         mouseInitialized = true;
-        if (x == centerX && y == centerY) return;
+        return;
     }
 
-    // Calcula o delta (diferença) do centro
-    float deltaX = (float)(x - centerX);
-    float deltaY = (float)(y - centerY);
+    float dx = (float)(x - cx);
+    float dy = (float)(y - cy);
 
-    // Se não houve movimento, não faz nada
-    if (deltaX == 0 && deltaY == 0) return;
+    if (dx == 0 && dy == 0) return;
 
-    // Aplica o delta à rotação da câmera
-    // CORREÇÃO: Invertido o sinal de += para -= para corrigir a inversão esquerda/direita
-    cameraYaw -= deltaX * MOUSE_SENSITIVITY; 
-    
-    // Mantém o Pitch como estava (se estiver invertido também, troque para -=)
-    cameraPitch += deltaY * MOUSE_SENSITIVITY;
+    float sensitivity = 0.2f;
+    cameraYaw -= dx * sensitivity;
+    cameraPitch += dy * sensitivity;
 
-    // Limites da câmera (Pitch)
-    if (cameraPitch > 89.0f) {
-        cameraPitch = 89.0f;
-    }
-    
-    // Limite para olhar para baixo
-    float minPitch = (isGrounded_3D) ? 1.0f : -89.0f;
-    if (cameraPitch < minPitch) {
-        cameraPitch = minPitch;
-    }
+    // Limitar Pitch
+    if (cameraPitch > 89.0f) cameraPitch = 89.0f;
+    if (cameraPitch < -89.0f) cameraPitch = -89.0f;
 
-    // Força o mouse a voltar para o centro da tela
-    glutWarpPointer(centerX, centerY);
+    glutWarpPointer(cx, cy);
 }
-/**
- * Chamada quando um botão do mouse é clicado.
- */
+
 void gameMouseClick_3D(int button, int state) {
-    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN) {
-        printf("Disparar gancho 3D!\n");
-        // Lógica do gancho 3D
-    }
+    // Implementar clique do gancho 3D futuramente
 }
 
-/**
- * Chamada quando uma tecla é pressionada.
- */
 GameAction gameKeyDown_3D(unsigned char key, int x, int y) {
     switch (key) {
         case 'w': case 'W': keyW = true; break;
         case 'a': case 'A': keyA = true; break;
         case 's': case 'S': keyS = true; break;
         case 'd': case 'D': keyD = true; break;
-        
-        // Lógica para alternar o modo do Mouse
         case 'm': case 'M': 
-            isMouseFree = !isMouseFree; // Inverte o estado
-            if (isMouseFree) {
-                glutSetCursor(GLUT_CURSOR_LEFT_ARROW); // Mostra o mouse
-            } else {
-                glutSetCursor(GLUT_CURSOR_NONE); // Esconde o mouse
-                // Centraliza para evitar "pulo" da câmera ao voltar
-                glutWarpPointer(windowWidth / 2, windowHeight / 2);
-                mouseInitialized = false; 
-            }
+            isMouseFree = !isMouseFree;
+            glutSetCursor(isMouseFree ? GLUT_CURSOR_LEFT_ARROW : GLUT_CURSOR_NONE);
+            if(!isMouseFree) glutWarpPointer(windowWidth/2, windowHeight/2);
             break;
-
         case 'q': case 'Q':
-            // --- LIMPEZA DO ESTADO OPENGL ANTES DE SAIR ---
-            // Isso corrige o menu escuro
-            glDisable(GL_LIGHTING); 
-            glDisable(GL_DEPTH_TEST);
-            glDisable(GL_COLOR_MATERIAL);
-            // Reseta a cor atual para branco puro, caso contrário o menu fica tingido
-            glColor4f(1.0f, 1.0f, 1.0f, 1.0f); 
-            
-            // Mostra o cursor ao sair
+            glDisable(GL_LIGHTING);
             glutSetCursor(GLUT_CURSOR_LEFT_ARROW);
             return GAME_ACTION_EXIT_TO_MENU;
     }
     return GAME_ACTION_CONTINUE;
 }
 
-/**
- * Chamada quando uma tecla é solta.
- */
 void gameKeyUp_3D(unsigned char key, int x, int y) {
     switch (key) {
-        // [2D-LOGIC] case 'a': case 'A': isPressingLeft = false; break;
-        // [2D-LOGIC] case 'd': case 'D': isPressingRight = false; break;
         case 'w': case 'W': keyW = false; break;
         case 'a': case 'A': keyA = false; break;
         case 's': case 'S': keyS = false; break;
@@ -629,13 +533,6 @@ void gameKeyUp_3D(unsigned char key, int x, int y) {
     }
 }
 
-// Funções de Teclas Especiais (não usadas aqui)
 void gameSpecialDown_3D(int key, int x, int y) {}
 void gameSpecialUp_3D(int key, int x, int y) {}
-
-/**
- * Carrega texturas 3D (vazio por enquanto).
- */
-void loadGameTextures_3D() {
-    printf("loadGameTextures_3D() chamado. (Nao ha texturas para carregar)\n");
-}
+void loadGameTextures_3D() {}

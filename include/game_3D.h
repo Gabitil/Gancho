@@ -1,8 +1,18 @@
 #ifndef GAME_3D_H
 #define GAME_3D_H
 
-// Importa a enumeração de ações do game.h original
-#include "game.h" 
+// 1. Tipos Padrão
+#include <cstddef>
+#include <cstdint>
+
+// 2. GLEW (Sempre antes de FreeGLUT/GL.h)
+#include <GL/glew.h>
+
+// 3. FreeGLUT
+#include <GL/freeglut.h>
+
+// 4. Headers do Projeto
+#include "game.h"
 
 void gameInit_3D();
 void gameStartLevel_3D(int level);

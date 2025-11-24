@@ -1,17 +1,14 @@
+// Define a implementação do STB apenas aqui
 #define STB_IMAGE_IMPLEMENTATION
-#include <GL/glew.h>
-#include <GL/freeglut.h>
-#include <GL/stb_image.h>
+
+#include "utils.h" // Traz glew.h e freeglut.h na ordem certa
 
 #include <cstdio>
+#include <cmath>
 
+// Se precisar de definições de game ou game_3d
 #include "game.h"
 #include "game_3D.h"
-// #include <stdio.h>
-#include <math.h>
-// #include <string>
-// #include <vector>
-// #include <algorithm>
 
 // ----------------------------------------------------------------------------------------------------------------
 
@@ -65,7 +62,7 @@ GLuint loadTexture(const char* filepath) {
  * largura, as cores (em RGB) e o coeficiente de transparência
  */
 void drawRect(float initX, float initY, float width, float height, float r,
-              float g, float b, float transparency = 1.0f) {
+              float g, float b, float transparency) {
   if (transparency < 1.0f) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -208,8 +205,8 @@ void drawRepeatingTexturedRect(float x, float y, float w, float h,
  * Tela/Menu Y-Down).
  */
 void drawTexturedRect(float x, float y, float w, float h, GLuint textureID,
-                      bool flipH = false,
-                      bool flipV = true) {  // flipV = true é o novo padrão
+                      bool flipH,
+                      bool flipV) { 
   if (textureID == 0) return;
 
   glEnable(GL_TEXTURE_2D);
@@ -285,7 +282,7 @@ void drawSpikes(float initX, float initY, float width, float height, float r,
  * fonte usada será a mesma usada no menu.
  */
 void drawText(float x, float y, const char* text,
-              void* font = GLUT_BITMAP_HELVETICA_18) {
+              void* font) {
   glRasterPos2f(x, y);
   for (const char* c = text; *c; ++c) {
     glutBitmapCharacter(font, *c);
@@ -452,4 +449,24 @@ bool checkRectangleCollision(float x1, float y1, float w1, float h1, float x2,
 void drawTextCentered(float cx, float y, const char* text, void* font) {
   int textWidth = getTextWidth(text, font);
   drawText(cx - textWidth / 2.0f, y, text, font);
+}
+
+void drawCubeLegacy(float x, float y, float z, float w, float h, float d, float r, float g, float b, float alpha) {
+    glPushMatrix();
+    glTranslatef(x, y, z);
+    glScalef(w, h, d);
+
+    if (alpha < 0.99f) {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
+    
+    // Cor e transparência
+    glColor4f(r, g, b, alpha);
+    
+    // Desenha o cubo padrão do FreeGLUT
+    glutSolidCube(1.0f);
+
+    if (alpha < 0.99f) glDisable(GL_BLEND);
+    glPopMatrix();
 }

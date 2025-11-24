@@ -3,7 +3,11 @@
 #ifndef MESH_UTILS_H
 #define MESH_UTILS_H
 
-#include <GL/gl.h>
+// Tipos padrão necessários para o glew.h (GLint64, etc)
+#include <cstddef>
+#include <cstdint>
+
+#include <GL/glew.h>
 
 // Um vértice completo no formato: pos(3) + cor(4) + tex(2) + normal(3)
 struct vert {

@@ -9,6 +9,7 @@
 #ifndef MENU_H
 #define MENU_H
 
+#include <GL/glew.h>
 #include <GL/freeglut.h>
 
 enum MenuOption {

@@ -1,12 +1,81 @@
+# CXX = g++
+# # Define onde o compilador deve procurar arquivos de cabeçalho (.h)
+# # Adicionamos -Isrc/core, -Isrc/ui, e -Isrc/util para que os includes funcionem
+# CXXFLAGS = -I. -Iinclude -Isrc/core -Isrc/ui -Isrc/util -g -Wall -std=c++17 -DGLEW_STATIC
+# LDFLAGS = -Llib
+
+# OBJ_DIR = obj
+# BIN_DIR = bin
+
+# # Define ONDE estão os arquivos .cpp
+# # Adicione '.' se o main.cpp estiver na raiz, caso contrário, remova.
+# SRC_DIRS := . src/core src/ui src/util
+
+# # pega todos os .cpp dessas pastas
+# SOURCES := $(foreach d,$(SRC_DIRS),$(wildcard $(d)/*.cpp))
+# # mapeia para objetos, espelhando a subpasta (core/game.cpp -> obj/core/game.o)
+# OBJECTS := $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(SOURCES))
+
+# ifeq ($(OS),Windows_NT)
+#     EXEC_NAME = jogo.exe
+#     SHELL := cmd.exe
+#     SHELLFLAGS := /C
+#     MKDIR = if not exist $(subst /,\,$(1)) mkdir $(subst /,\,$(1))
+#     RM = if exist $(subst /,\,$(1)) rmdir /S /Q $(subst /,\,$(1))
+#     LIBS = -lfreeglut -lglu32 -lopengl32 -lgdi32 -lwinmm
+# else
+#     EXEC_NAME = jogo
+#     MKDIR = mkdir -p $(1)
+#     RM = rm -rf $(1)
+#     LIBS = -lglut -lGLEW -lGL -lGLU
+# endif
+
+# EXEC = $(BIN_DIR)/$(EXEC_NAME)
+
+# all: $(EXEC)
+# compilar: all
+# run: executar
+
+# $(EXEC): $(OBJECTS)
+# 	@echo [LINK] Criando executável $@
+# 	$(call MKDIR,$(BIN_DIR))
+# 	$(CXX) $^ -o $@ $(LDFLAGS) $(LIBS)
+# 	@echo [OK] Compilação concluída.
+
+# # cria subpastas em obj/ automaticamente
+# $(OBJ_DIR)/%.o: %.cpp
+# 	@echo [C++] Compilando $<
+# 	$(call MKDIR,$(dir $@))
+# 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# executar: all
+# 	@echo --- Executando o jogo ---
+# ifeq ($(OS),Windows_NT)
+# 	$(subst /,\,$(EXEC))
+# else
+# 	./$(EXEC)
+# endif
+# 	@echo --- Jogo finalizado ---
+
+# limpar:
+# 	$(call RM,$(OBJ_DIR))
+# 	$(call RM,$(BIN_DIR))
+# 	@echo Limpeza concluída.
+
+# .PHONY: all compilar executar limpar run
+
 CXX = g++
-CXXFLAGS = -Iinclude -I. -g -Wall -std=c++17
+# Define onde o compilador deve procurar arquivos de cabeçalho (.h)
+# Adicionamos -Isrc/core, -Isrc/ui, e -Isrc/util para que os includes funcionem
+CXXFLAGS = -I. -Iinclude -Isrc/core -Isrc/ui -Isrc/util -g -Wall -std=c++17 -DGLEW_STATIC
 LDFLAGS = -Llib
 
 OBJ_DIR = obj
 BIN_DIR = bin
 
-# >>> Liste aqui as pastas que têm .cpp <<<
-SRC_DIRS := . core ui util gfx audio src src/core src/ui src/util src/gfx src/audio
+# Define ONDE estão os arquivos .cpp
+# Adicione '.' se o main.cpp estiver na raiz, caso contrário, remova.
+SRC_DIRS := . src/core src/ui src/util
 
 # pega todos os .cpp dessas pastas
 SOURCES := $(foreach d,$(SRC_DIRS),$(wildcard $(d)/*.cpp))
@@ -19,12 +88,12 @@ ifeq ($(OS),Windows_NT)
     SHELLFLAGS := /C
     MKDIR = if not exist $(subst /,\,$(1)) mkdir $(subst /,\,$(1))
     RM = if exist $(subst /,\,$(1)) rmdir /S /Q $(subst /,\,$(1))
-    LIBS = -lfreeglut -lglew32 -lglu32 -lopengl32
+	LIBS = -lglew32 -lfreeglut -lglu32 -lopengl32 -lgdi32 -lwinmm
 else
     EXEC_NAME = jogo
     MKDIR = mkdir -p $(1)
     RM = rm -rf $(1)
-    LIBS = -lglut -lGLEW -lGL -lGLU
+    LIBS = -lglut -lGLEW -lGL -lGLU 
 endif
 
 EXEC = $(BIN_DIR)/$(EXEC_NAME)
@@ -38,7 +107,6 @@ $(EXEC): $(OBJECTS)
 	$(call MKDIR,$(BIN_DIR))
 	$(CXX) $^ -o $@ $(LDFLAGS) $(LIBS)
 	@echo [OK] Compilação concluída.
-
 # cria subpastas em obj/ automaticamente
 $(OBJ_DIR)/%.o: %.cpp
 	@echo [C++] Compilando $<
@@ -58,5 +126,4 @@ limpar:
 	$(call RM,$(OBJ_DIR))
 	$(call RM,$(BIN_DIR))
 	@echo Limpeza concluída.
-
 .PHONY: all compilar executar limpar run

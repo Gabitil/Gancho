@@ -4,16 +4,21 @@
  * garantir a segurança e a linearidade dos resultados calculados.
  */
 
+// Header correspondente primeiro
 #include "game.h"
 
-#include <GL/freeglut.h>
+// Bibliotecas padrão
 #include <stdio.h>
-
-#include "utils.h"
-// #include <math.h>
 #include <algorithm>
 #include <string>
 #include <vector>
+#include <cmath>
+
+// GLEW/GLUT já vêm de game.h, mas se quiser garantir:
+// #include <GL/glew.h>
+// #include <GL/freeglut.h>
+
+#include "utils.h"
 
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS

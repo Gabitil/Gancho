@@ -1,13 +1,21 @@
+#ifndef UTILS_H
+#define UTILS_H
+
+#include <cstddef>
+#include <cstdint>
+
+// Ordem Crítica:
+#include <GL/glew.h>
 #include <GL/freeglut.h>
 
 #include "GL/stb_image.h"
-#include "game.h"
-#include "game_3D.h"
-// #include <stdio.h>
-#include <math.h>
-// #include <string>
-// #include <vector>
-// #include <algorithm>
+#include <cmath>
+
+// Headers do projeto (opcionais aqui, dependendo se utils.h precisa deles)
+// Se utils.h apenas declara funções utilitárias, evite incluir game.h aqui para reduzir acoplamento.
+// Mas se for necessário:
+#include "game.h" 
+// #include "game_3D.h"
 
 // ----------------------------------------------------------------------------------------------------------------
 
@@ -314,3 +322,7 @@ void drawParallaxLayer(GLuint textureID,
                        float viewW, float viewH,
                        float parallaxX, float parallaxY,
                        float tileWorldW, float tileWorldH);
+
+void drawCubeLegacy(float x, float y, float z, float w, float h, float d, float r, float g, float b, float alpha = 1.0f);
+
+#endif

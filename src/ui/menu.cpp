@@ -1,6 +1,7 @@
-#include "menu.h"
+#include "menu.h" // Já inclui GL/glew.h e freeglut.h na ordem certa
 
 #include <cstring>
+#include <stdio.h> // Para printf se necessário
 
 #include "utils.h"
 

@@ -4,12 +4,23 @@
  * o jogo 2D. Algumas funções tiveram de ser renomeadas para fins de visualização e organização.
  */
 
+// 1. Tipos fundamentais (Crucial para GLEW)
+#include <cstddef>
+#include <cstdint>
+
+// 2. GLEW (Crucial vir antes de freeglut)
+#include <GL/glew.h>
+
+// 3. FreeGLUT
 #include <GL/freeglut.h>
+
+// 4. Bibliotecas Padrão
 #include <stdio.h>
 #include <string>
 
-#include "game.h"
+// 5. Headers do Projeto
 #include "game_3D.h"
+#include "game.h"
 #include "menu.h"
 #include "utils.h"
 
@@ -809,10 +820,16 @@ void init()
 int main(int argc, char **argv)
 {
   glutInit(&argc, argv);
-  glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+  glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);  
   glutInitWindowSize(INITIAL_WIN_WIDTH, INITIAL_WIN_HEIGHT);
   glutInitWindowPosition(100, 100);
   glutCreateWindow("Gancho");
+
+  GLenum err = glewInit();
+  if (GLEW_OK != err) {
+      fprintf(stderr, "Erro GLEW: %s\n", glewGetErrorString(err));
+      return 1;
+  }
 
   init();
 
