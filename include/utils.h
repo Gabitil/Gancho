@@ -15,6 +15,7 @@
 // Se utils.h apenas declara funções utilitárias, evite incluir game.h aqui para reduzir acoplamento.
 // Mas se for necessário:
 #include "game.h" 
+#include "game_structs.h" 
 // #include "game_3D.h"
 
 // ----------------------------------------------------------------------------------------------------------------
@@ -324,5 +325,17 @@ void drawParallaxLayer(GLuint textureID,
                        float tileWorldW, float tileWorldH);
 
 void drawCubeLegacy(float x, float y, float z, float w, float h, float d, float r, float g, float b, float alpha = 1.0f);
+
+void drawVector_3D(Vector_3D start, Vector_3D vector, float scale, float r, float g, float b, const char* label);
+
+bool checkAABBCollision(float x1, float y1, float z1, float w1, float h1, float d1,
+                        float x2, float y2, float z2, float w2, float h2, float d2);
+
+bool isPointInsideBox(float px, float py, float pz, 
+                      float x, float y, float z, float w, float h, float d);
+
+bool lineBoxIntersection(float x1, float y1, float z1, 
+                         float x2, float y2, float z2, 
+                         Platform_3D p, float& hX, float& hY, float& hZ);
 
 #endif

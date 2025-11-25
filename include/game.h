@@ -13,54 +13,9 @@
 #include <GL/glew.h>
 #include <GL/freeglut.h>
 
+#include "game_structs.h"
+
 // #include "GL/stb_image.h"
-
-/**
- * Lógica modularizada para controle dos estados do jogo
- */
-enum GameAction {
-  GAME_ACTION_CONTINUE,
-  GAME_ACTION_EXIT_TO_MENU,
-  GAME_ACTION_LEVEL_WON,
-  GAME_ACTION_LEVEL_LOST
-};
-
-/**
- * Todos os elementos do jogo (correntes de vento, espinhos, jogador, etc) são
- * modularizados para garantir que sempre terão os mesmos comportamentos e sigam
- * uma estrutura padrão. Os valores passíveis de mudanças são variáveis
- * controladas pela lógica do game ou pela fase em questão
- */
-struct GameObject {
-  float x, y, w, h;
-  float r, g, b;
-  float velocityX, velocityY;
-};
-
-struct Platform {
-  float x, y, w, h;
-  float r, g, b;
-  bool isHookable;
-  float frictionCoefficient;  // Coeficiente de atrito, responsável pela
-                              // aceleração ou desaceleração do personagem
-};
-
-struct WindZone {
-  float x, y, w, h;
-  float accelX, accelY;  // Aceleração que o vento aplica ao jogador
-};
-
-struct BreakableWall {
-  float x, y, w, h;
-  float r, g, b;
-  float strength;  // Resistência da parede
-  bool isBroken;
-};
-
-struct SpikeZone {
-  float x, y, w, h;
-  float r, g, b;
-};
 
 void createDisplayLists();
 void gameStartLevel();

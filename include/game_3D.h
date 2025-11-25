@@ -13,6 +13,19 @@
 
 // 4. Headers do Projeto
 #include "game.h"
+#include "mesh_utils.h"
+#include "utils.h"
+#include "game_structs.h"
+
+// Bibliotecas padrão
+#include <stdio.h>
+#include <cmath>
+#include <vector>
+#include <algorithm>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 void gameInit_3D();
 void gameStartLevel_3D(int level);

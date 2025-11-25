@@ -88,8 +88,10 @@ Button levelSelectBackButton;    // Botão de "voltar" contido na seleção de l
 Button gameBackButton;           // Botão de "voltar" contido dentro do próprio jogo
 
 MenuOption selectedMenuOption = NONE;
-int maxLevelUnlocked = 1;
-int activeLevel = 1;
+int maxLevelUnlocked_2D = 1;
+int maxLevelUnlocked_3D = 1;
+
+int activeLevel_2D = 1;
 int activeLevel_3D = 1;
 
 // ------------------------------------------------------------------------------------------------------------------
@@ -371,7 +373,10 @@ void updateAllButtonPositions(int w, int h)
   {
     levelButtons[i].x = startX;
     levelButtons[i].y = startSubMenuY + i * (buttonHeight + spacing);
-    levelButtons[i].enabled = (i + 1 <= maxLevelUnlocked);
+    if (currentState == STATE_LEVEL_SELECT_2D)
+        levelButtons[i].enabled = (i + 1 <= maxLevelUnlocked_2D);
+    else
+        levelButtons[i].enabled = (i + 1 <= maxLevelUnlocked_3D);
   }
 
   instrBackButton.x = margin;
@@ -600,9 +605,9 @@ void mouseClick(int button, int state, int x, int y)
         {
           if (levelButtons[i].hovered && levelButtons[i].enabled)
           {
-            activeLevel = i + 1;
+            activeLevel_2D = i + 1;
             currentState = STATE_GAME_2D;
-            gameStartLevel(activeLevel);
+            gameStartLevel(activeLevel_2D);
             loadGameTextures();
             glutTimerFunc(16, timer, 0);
             break;
@@ -619,19 +624,16 @@ void mouseClick(int button, int state, int x, int y)
         {
           if (levelButtons[i].hovered && levelButtons[i].enabled)
           {
-            // Em main.cpp, dentro de mouseClick -> case STATE_LEVEL_SELECT_3D:
-            // ...
+            activeLevel_3D = i + 1;
             currentState = STATE_GAME_3D;
-            gameStartLevel_3D(activeLevel);
+            gameStartLevel_3D(activeLevel_3D);
             loadGameTextures_3D();
 
-            // NOVO: Registra os callbacks de mouse para 3D
             glutMotionFunc(gameMouseMotion_3D);        // Para movimento com botão pressionado
             glutPassiveMotionFunc(gameMouseMotion_3D); // Para movimento SEM botão pressionado
 
             glutTimerFunc(16, timer, 0);
             break;
-            // ...
           }
         }
         if (levelSelectBackButton.hovered)
@@ -671,7 +673,6 @@ void keyboardDown(unsigned char key, int x, int y)
     {
       currentState = STATE_LEVEL_SELECT_3D;
 
-      // NOVO: Restaura os callbacks de mouse para o menu
       glutMotionFunc(mouseMotion);
       glutPassiveMotionFunc(mouseMotion);
 
@@ -743,15 +744,22 @@ void timer(int value)
 
   // Lida com a ação retornada
   if (action == GAME_ACTION_LEVEL_WON)
-  {
-    if (activeLevel == maxLevelUnlocked && maxLevelUnlocked < NUM_LEVELS)
+{
+    if (originalState == STATE_GAME_2D)
     {
-      maxLevelUnlocked++;
+        if (activeLevel_2D == maxLevelUnlocked_2D && maxLevelUnlocked_2D < NUM_LEVELS)
+            maxLevelUnlocked_2D++;
+        currentState = STATE_LEVEL_SELECT_2D;
     }
-    // Volta para o menu de seleção de nível correto
-    currentState = (originalState == STATE_GAME_2D) ? STATE_LEVEL_SELECT_2D : STATE_LEVEL_SELECT_3D;
+    else // 3D
+    {
+        if (activeLevel_3D == maxLevelUnlocked_3D && maxLevelUnlocked_3D < NUM_LEVELS)
+            maxLevelUnlocked_3D++;
+        currentState = STATE_LEVEL_SELECT_3D;
+    }
+
     reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
-  }
+}
   else if (action == GAME_ACTION_LEVEL_LOST)
   {
     // Volta para o menu de seleção de nível correto
@@ -799,7 +807,7 @@ void init()
   gameBackButton = {0, 0, 100, 35, "Voltar", false, true};
 
   updateAllButtonPositions(INITIAL_WIN_WIDTH, INITIAL_WIN_HEIGHT);
-  gameStartLevel(activeLevel); // Pré-carrega o nível 1 2D
+  gameStartLevel(activeLevel_2D); // Pré-carrega o nível 1 2D
 
   // Carrega as texturas de menu
   texMenuBackground = loadTexture("assets/images/menu/background_menu.png");

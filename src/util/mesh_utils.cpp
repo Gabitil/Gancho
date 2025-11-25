@@ -342,3 +342,99 @@ void desenhaTrisComVBO(GLuint vbo, int quantosTris) {
     // opcional: desligar estados / desbindar
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
+
+/**
+ * Gera um array de triângulos representando uma caixa (cubo/paralelepípedo).
+ * Retorna um ponteiro para o array alocado (deve ser liberado com free).
+ */
+tri* createBoxTris(float x, float y, float z, float w, float h, float d, float r, float g, float b, int& outTriCount) {
+    outTriCount = 12;
+    tri* tris = (tri*)malloc(outTriCount * sizeof(tri));
+
+    // Coordenadas
+    float x0 = x,     y0 = y,     z0 = z + d;
+    float x1 = x + w, y1 = y,     z1 = z + d;
+    float x2 = x + w, y2 = y + h, z2 = z + d;
+    float x3 = x,     y3 = y + h, z3 = z + d;
+    float x4 = x,     y4 = y,     z4 = z;
+    float x5 = x + w, y5 = y,     z5 = z;
+    float x6 = x + w, y6 = y + h, z6 = z;
+    float x7 = x,     y7 = y + h, z7 = z;
+
+    // Função auxiliar atualizada para preencher a struct 'vert'
+    // Agora aceita a Normal (nx, ny, nz)
+    auto setV = [&](vert& v, float vx, float vy, float vz, float nx, float ny, float nz) {
+        // Posição
+        v.pos[0] = vx; v.pos[1] = vy; v.pos[2] = vz;
+        // Cor (R, G, B, Alpha=1.0)
+        v.cor[0] = r;  v.cor[1] = g;  v.cor[2] = b; v.cor[3] = 1.0f; 
+        // Normal
+        v.normal[0] = nx; v.normal[1] = ny; v.normal[2] = nz;
+        // Textura (Zero por enquanto)
+        v.tex[0] = 0.0f; v.tex[1] = 0.0f;
+    };
+
+    int i = 0;
+
+    // --- FACE FRONTAL (Normal aponta para +Z: 0, 0, 1) ---
+    setV(tris[i].v[0], x0, y0, z0, 0, 0, 1);
+    setV(tris[i].v[1], x1, y1, z1, 0, 0, 1);
+    setV(tris[i].v[2], x2, y2, z2, 0, 0, 1);
+    i++;
+    setV(tris[i].v[0], x0, y0, z0, 0, 0, 1);
+    setV(tris[i].v[1], x2, y2, z2, 0, 0, 1);
+    setV(tris[i].v[2], x3, y3, z3, 0, 0, 1);
+    i++;
+
+    // --- FACE TRASEIRA (Normal aponta para -Z: 0, 0, -1) ---
+    setV(tris[i].v[0], x5, y5, z5, 0, 0, -1);
+    setV(tris[i].v[1], x4, y4, z4, 0, 0, -1);
+    setV(tris[i].v[2], x7, y7, z7, 0, 0, -1);
+    i++;
+    setV(tris[i].v[0], x5, y5, z5, 0, 0, -1);
+    setV(tris[i].v[1], x7, y7, z7, 0, 0, -1);
+    setV(tris[i].v[2], x6, y6, z6, 0, 0, -1);
+    i++;
+
+    // --- FACE ESQUERDA (Normal aponta para -X: -1, 0, 0) ---
+    setV(tris[i].v[0], x4, y4, z4, -1, 0, 0);
+    setV(tris[i].v[1], x0, y0, z0, -1, 0, 0);
+    setV(tris[i].v[2], x3, y3, z3, -1, 0, 0);
+    i++;
+    setV(tris[i].v[0], x4, y4, z4, -1, 0, 0);
+    setV(tris[i].v[1], x3, y3, z3, -1, 0, 0);
+    setV(tris[i].v[2], x7, y7, z7, -1, 0, 0);
+    i++;
+
+    // --- FACE DIREITA (Normal aponta para +X: 1, 0, 0) ---
+    setV(tris[i].v[0], x1, y1, z1, 1, 0, 0);
+    setV(tris[i].v[1], x5, y5, z5, 1, 0, 0);
+    setV(tris[i].v[2], x6, y6, z6, 1, 0, 0);
+    i++;
+    setV(tris[i].v[0], x1, y1, z1, 1, 0, 0);
+    setV(tris[i].v[1], x6, y6, z6, 1, 0, 0);
+    setV(tris[i].v[2], x2, y2, z2, 1, 0, 0);
+    i++;
+
+    // --- FACE SUPERIOR (Normal aponta para +Y: 0, 1, 0) ---
+    setV(tris[i].v[0], x3, y3, z3, 0, 1, 0);
+    setV(tris[i].v[1], x2, y2, z2, 0, 1, 0);
+    setV(tris[i].v[2], x6, y6, z6, 0, 1, 0);
+    i++;
+    setV(tris[i].v[0], x3, y3, z3, 0, 1, 0);
+    setV(tris[i].v[1], x6, y6, z6, 0, 1, 0);
+    setV(tris[i].v[2], x7, y7, z7, 0, 1, 0);
+    i++;
+
+    // --- FACE INFERIOR (Normal aponta para -Y: 0, -1, 0) ---
+    setV(tris[i].v[0], x4, y4, z4, 0, -1, 0);
+    setV(tris[i].v[1], x5, y5, z5, 0, -1, 0);
+    setV(tris[i].v[2], x1, y1, z1, 0, -1, 0);
+    i++;
+    setV(tris[i].v[0], x4, y4, z4, 0, -1, 0);
+    setV(tris[i].v[1], x1, y1, z1, 0, -1, 0);
+    setV(tris[i].v[2], x0, y0, z0, 0, -1, 0);
+    i++;
+
+    return tris;
+}

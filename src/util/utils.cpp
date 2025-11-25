@@ -470,3 +470,164 @@ void drawCubeLegacy(float x, float y, float z, float w, float h, float d, float 
     if (alpha < 0.99f) glDisable(GL_BLEND);
     glPopMatrix();
 }
+
+/**
+ * Função auxiliar para desenhar texto em 3D (para os vetores)
+ */
+void drawText3D(float x, float y, float z, const char* text) {
+    glRasterPos3f(x, y, z);
+    while (*text) {
+        glutBitmapCharacter(GLUT_BITMAP_9_BY_15, *text);
+        text++;
+    }
+}
+
+/**
+ * Função responsável por desenhar vetores 3D (Linha + Cone/Ponta + Label).
+ * @param start Posição de início do vetor (Ex: centro do player).
+ * @param vector Componentes físicas do vetor (velocidade, força, etc.).
+ * @param scale Fator de escala visual para traduzir o valor físico em tamanho de mundo.
+ * @param r Cor R (0.0 a 1.0).
+ * @param g Cor G (0.0 a 1.0).
+ * @param b Cor B (0.0 a 1.0).
+ * @param label Nome do vetor para exibição.
+ */
+void drawVector_3D(Vector_3D start, Vector_3D vector, float scale, float r, float g, float b, const char* label) {
+    // 1. CÁLCULO VISUAL DO VETOR
+    float vX_visual = vector.x * scale;
+    float vY_visual = vector.y * scale;
+    float vZ_visual = vector.z * scale;
+    
+    // Ponto final
+    Vector_3D end = {
+        start.x + vX_visual,
+        start.y + vY_visual,
+        start.z + vZ_visual
+    };
+
+    // Comprimento do vetor visual
+    float currentLen = sqrt(vX_visual*vX_visual + vY_visual*vY_visual + vZ_visual*vZ_visual);
+
+    // Se o vetor for muito pequeno, não desenha para evitar poluição visual
+    if (currentLen < 0.1f) return;
+
+    // A cor e largura da linha
+    glDisable(GL_LIGHTING);
+    glLineWidth(2.0f); 
+    glColor3f(r, g, b);
+
+    // 2. DESENHA A LINHA
+    glBegin(GL_LINES);
+        glVertex3f(start.x, start.y, start.z);
+        glVertex3f(end.x, end.y, end.z);
+    glEnd();
+    glLineWidth(1.0f);
+
+    // 3. DESENHA A PONTA (Cone)
+    
+    // O cone é desenhado no espaço local, e as transformações o movem para o ponto final
+    // e o rotacionam para apontar na direção do vetor.
+
+    // Parâmetros da ponta
+    const float coneRadius = 0.5f; 
+    const float coneHeight = 1.0f;
+    
+    // Direção normalizada do vetor
+    float nx = vX_visual / currentLen;
+    float ny = vY_visual / currentLen;
+    float nz = vZ_visual / currentLen;
+    
+    // Para simplificar a rotação, usamos o eixo de rotação e o ângulo (Axis-Angle)
+    
+    // O vetor 'direção padrão' do cone é (0, 0, 1) (eixo Z positivo).
+    // O ângulo entre o vetor de direção (nx, ny, nz) e o vetor padrão (0, 0, 1) é o Pitch/Yaw
+    
+    // Eixo Y é o "up" (como se o cone fosse desenhado ao longo de Y por padrão)
+    // Vamos desenhar o cone ao longo de Z para maior clareza na rotação.
+    
+    // Ângulo para rotação
+    float angle = acos(nz) * 180.0f / M_PI; // acos(dot_product(V, Z_AXIS) / |V|)
+    
+    // Eixo de rotação (produto vetorial entre Z_AXIS (0, 0, 1) e o vetor normalizado (nx, ny, nz))
+    // R = Z_AXIS x V = (ny * 1 - nz * 0, nz * 0 - nx * 1, nx * 0 - ny * 0)
+    // R = (ny, -nx, 0)
+    float rotAxisX = ny;
+    float rotAxisY = -nx;
+    float rotAxisZ = 0.0f;
+
+    glPushMatrix();
+        // 3.1 Move para a ponta do vetor
+        glTranslatef(end.x, end.y, end.z);
+        
+        // 3.2 Rotaciona para alinhar o eixo Z (padrão) com o vetor
+        if (currentLen > 0.001f) {
+            // Rotação: Gire `angle` graus em torno do eixo `(rotAxisX, rotAxisY, rotAxisZ)`
+            glRotatef(angle, rotAxisX, rotAxisY, rotAxisZ);
+        }
+        
+        // 3.3 Gira mais 180 graus em Y (se necessário, dependendo da primitiva)
+        // O glutSolidCone é desenhado ao longo do eixo Y, então a lógica acima muda.
+        // Vamos forçar o cone a ser desenhado ao longo do eixo -Z para que a ponta 
+        // aponte para a origem do vetor.
+        
+        // Rotação para corrigir a primitiva do GLUT (que geralmente aponta ao longo de Y)
+        glRotatef(90.0f, 1.0f, 0.0f, 0.0f); // Gira -90 graus em X para apontar Z para baixo
+
+        // DESENHA O CONE (ponta)
+        glutSolidCone(coneRadius, coneHeight, 10, 2);
+    glPopMatrix();
+
+    // 4. DESENHA O TEXTO (Label)
+
+    // Desabilitamos o teste de profundidade para garantir que o texto seja sempre legível (como no 2D)
+    glDisable(GL_DEPTH_TEST); 
+    glColor3f(1.0f, 1.0f, 1.0f); // Branco
+    
+    // Posiciona o texto ligeiramente acima da ponta do vetor
+    glRasterPos3f(end.x, end.y + coneHeight * 0.5f, end.z); 
+    
+    const char* c = label;
+    while (*c) {
+        // Usamos uma fonte de bitmap simples
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *c); 
+        c++;
+    }
+    
+    // Reabilita os estados
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_LIGHTING); 
+}
+
+// Verifica se dois objetos 3D (Box) colidem (AABB - Axis Aligned Bounding Box)
+bool checkAABBCollision(float x1, float y1, float z1, float w1, float h1, float d1,
+                        float x2, float y2, float z2, float w2, float h2, float d2) {
+    return (x1 < x2 + w2 && x1 + w1 > x2 &&
+            y1 < y2 + h2 && y1 + h1 > y2 &&
+            z1 < z2 + d2 && z1 + d1 > z2);
+}
+
+// Verifica se um ponto está dentro de uma caixa 3D
+bool isPointInsideBox(float px, float py, float pz, 
+                      float x, float y, float z, float w, float h, float d) {
+    return (px >= x && px <= x + w &&
+            py >= y && py <= y + h &&
+            pz >= z && pz <= z + d);
+}
+
+// Interseção de segmento de reta com caixa (Simplificada para o Gancho)
+// Retorna true se bateu e preenche hitX, hitY, hitZ
+bool lineBoxIntersection(float x1, float y1, float z1, 
+                         float x2, float y2, float z2, 
+                         Platform_3D p, float& hX, float& hY, float& hZ) {
+    // Para simplificar: verificamos se o ponto final (x2, y2, z2) entrou na caixa
+    // Um raycast completo seria mais custoso, mas para jogos rápidos isso funciona bem
+    // se o projétil não for rápido demais a ponto de atravessar em 1 frame.
+    
+    // Passo intermédio: verificar se o segmento cruza a caixa
+    // Vamos usar uma aproximação: se o ponto final está dentro, colidiu.
+    if (isPointInsideBox(x2, y2, z2, p.x, p.y, p.z, p.w, p.h, p.d)) {
+        hX = x2; hY = y2; hZ = z2;
+        return true;
+    }
+    return false;
+}

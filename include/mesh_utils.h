@@ -8,19 +8,7 @@
 #include <cstdint>
 
 #include <GL/glew.h>
-
-// Um vértice completo no formato: pos(3) + cor(4) + tex(2) + normal(3)
-struct vert {
-    GLfloat pos[3];    // x, y, z
-    GLfloat cor[4];    // r, g, b, a
-    GLfloat tex[2];    // s, t
-    GLfloat normal[3]; // nx, ny, nz
-};
-
-// Um triângulo = 3 vértices
-struct tri {
-    vert v[3];
-};
+#include "game_structs.h"
 
 /// Cria um VBO a partir de um array de triângulos.
 /// Retorna o id do buffer (GLuint).
@@ -31,5 +19,7 @@ void desenhaTrisComVertexArrays(int quantosTris, const tri* triangulos);
 
 /// Desenha triângulos usando VBO já criado.
 void desenhaTrisComVBO(GLuint vbo, int quantosTris);
+
+tri* createBoxTris(float x, float y, float z, float w, float h, float d, float r, float g, float b, int& outTriCount);
 
 #endif
