@@ -492,110 +492,60 @@ void drawText3D(float x, float y, float z, const char* text) {
  * @param b Cor B (0.0 a 1.0).
  * @param label Nome do vetor para exibição.
  */
+/**
+ * Desenha um vetor 3D (Linha + Cone).
+ */
 void drawVector_3D(Vector_3D start, Vector_3D vector, float scale, float r, float g, float b, const char* label) {
-    // 1. CÁLCULO VISUAL DO VETOR
-    float vX_visual = vector.x * scale;
-    float vY_visual = vector.y * scale;
-    float vZ_visual = vector.z * scale;
-    
-    // Ponto final
-    Vector_3D end = {
-        start.x + vX_visual,
-        start.y + vY_visual,
-        start.z + vZ_visual
-    };
+    // 1. Tamanho Visual
+    float vx = vector.x * scale;
+    float vy = vector.y * scale;
+    float vz = vector.z * scale;
+    float len = sqrt(vx*vx + vy*vy + vz*vz);
 
-    // Comprimento do vetor visual
-    float currentLen = sqrt(vX_visual*vX_visual + vY_visual*vY_visual + vZ_visual*vZ_visual);
+    if (len < 0.1f) return; // Muito pequeno
 
-    // Se o vetor for muito pequeno, não desenha para evitar poluição visual
-    if (currentLen < 0.1f) return;
+    // Ponto Final
+    Vector_3D end = {start.x + vx, start.y + vy, start.z + vz};
 
-    // A cor e largura da linha
     glDisable(GL_LIGHTING);
-    glLineWidth(2.0f); 
+    glLineWidth(2.0f);
     glColor3f(r, g, b);
 
-    // 2. DESENHA A LINHA
+    // 2. Linha
     glBegin(GL_LINES);
         glVertex3f(start.x, start.y, start.z);
         glVertex3f(end.x, end.y, end.z);
     glEnd();
-    glLineWidth(1.0f);
 
-    // 3. DESENHA A PONTA (Cone)
-    
-    // O cone é desenhado no espaço local, e as transformações o movem para o ponto final
-    // e o rotacionam para apontar na direção do vetor.
-
-    // Parâmetros da ponta
-    const float coneRadius = 0.5f; 
-    const float coneHeight = 1.0f;
-    
-    // Direção normalizada do vetor
-    float nx = vX_visual / currentLen;
-    float ny = vY_visual / currentLen;
-    float nz = vZ_visual / currentLen;
-    
-    // Para simplificar a rotação, usamos o eixo de rotação e o ângulo (Axis-Angle)
-    
-    // O vetor 'direção padrão' do cone é (0, 0, 1) (eixo Z positivo).
-    // O ângulo entre o vetor de direção (nx, ny, nz) e o vetor padrão (0, 0, 1) é o Pitch/Yaw
-    
-    // Eixo Y é o "up" (como se o cone fosse desenhado ao longo de Y por padrão)
-    // Vamos desenhar o cone ao longo de Z para maior clareza na rotação.
-    
-    // Ângulo para rotação
-    float angle = acos(nz) * 180.0f / M_PI; // acos(dot_product(V, Z_AXIS) / |V|)
-    
-    // Eixo de rotação (produto vetorial entre Z_AXIS (0, 0, 1) e o vetor normalizado (nx, ny, nz))
-    // R = Z_AXIS x V = (ny * 1 - nz * 0, nz * 0 - nx * 1, nx * 0 - ny * 0)
-    // R = (ny, -nx, 0)
-    float rotAxisX = ny;
-    float rotAxisY = -nx;
-    float rotAxisZ = 0.0f;
-
+    // 3. Cone (Ponta)
     glPushMatrix();
-        // 3.1 Move para a ponta do vetor
         glTranslatef(end.x, end.y, end.z);
-        
-        // 3.2 Rotaciona para alinhar o eixo Z (padrão) com o vetor
-        if (currentLen > 0.001f) {
-            // Rotação: Gire `angle` graus em torno do eixo `(rotAxisX, rotAxisY, rotAxisZ)`
-            glRotatef(angle, rotAxisX, rotAxisY, rotAxisZ);
-        }
-        
-        // 3.3 Gira mais 180 graus em Y (se necessário, dependendo da primitiva)
-        // O glutSolidCone é desenhado ao longo do eixo Y, então a lógica acima muda.
-        // Vamos forçar o cone a ser desenhado ao longo do eixo -Z para que a ponta 
-        // aponte para a origem do vetor.
-        
-        // Rotação para corrigir a primitiva do GLUT (que geralmente aponta ao longo de Y)
-        glRotatef(90.0f, 1.0f, 0.0f, 0.0f); // Gira -90 graus em X para apontar Z para baixo
 
-        // DESENHA O CONE (ponta)
-        glutSolidCone(coneRadius, coneHeight, 10, 2);
+        // Rotação para apontar o cone na direção do vetor
+        // O glutSolidCone aponta para +Z por padrão.
+        // Calculamos o ângulo horizontal (Yaw) e vertical (Pitch)
+        float yaw = atan2(vx, vz) * 180.0f / M_PI;
+        float pitch = -atan2(vy, sqrt(vx*vx + vz*vz)) * 180.0f / M_PI; // Negativo pois Y é up
+
+        glRotatef(yaw, 0, 1, 0);   // Gira no horizonte
+        glRotatef(pitch, 1, 0, 0); // Inclina para cima/baixo
+
+        glutSolidCone(0.2f, 0.5f, 8, 2); // Base, Altura, Fatias, Pilhas
     glPopMatrix();
 
-    // 4. DESENHA O TEXTO (Label)
-
-    // Desabilitamos o teste de profundidade para garantir que o texto seja sempre legível (como no 2D)
-    glDisable(GL_DEPTH_TEST); 
-    glColor3f(1.0f, 1.0f, 1.0f); // Branco
-    
-    // Posiciona o texto ligeiramente acima da ponta do vetor
-    glRasterPos3f(end.x, end.y + coneHeight * 0.5f, end.z); 
-    
-    const char* c = label;
-    while (*c) {
-        // Usamos uma fonte de bitmap simples
-        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *c); 
-        c++;
+    // 4. Texto
+    if (label) {
+        glDisable(GL_DEPTH_TEST); // Texto sempre visível
+        glColor3f(1, 1, 1);
+        glRasterPos3f(end.x, end.y + 0.2f, end.z);
+        while (*label) {
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *label);
+            label++;
+        }
+        glEnable(GL_DEPTH_TEST);
     }
-    
-    // Reabilita os estados
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_LIGHTING); 
+
+    glEnable(GL_LIGHTING);
 }
 
 // Verifica se dois objetos 3D (Box) colidem (AABB - Axis Aligned Bounding Box)

@@ -143,6 +143,29 @@ extern void loadGameTextures_3D();
 // ------------------------------------------------------------------------------------------------------------------
 
 /**
+ * Reseta as configurações do OpenGL de 3D para 2D.
+ * Deve ser chamada sempre que sair do jogo 3D (Vitória, Derrota ou Quit).
+ */
+void exitGame3DMode() {
+    // 1. Desliga sistemas 3D
+    glDisable(GL_LIGHTING);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_COLOR_MATERIAL);
+
+    // 2. Reseta a cor para Branco Puro
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+
+    // 3. Mostra o Mouse
+    glutSetCursor(GLUT_CURSOR_LEFT_ARROW);
+
+    // --- CORREÇÃO CRUCIAL (RESTORE CALLBACKS) ---
+    // O jogo 3D tinha "sequestrado" o mouse. Agora devolvemos o controle
+    // para a função 'mouseMotion' da main.cpp, que sabe lidar com menus.
+    glutPassiveMotionFunc(mouseMotion);
+    glutMotionFunc(mouseMotion);
+}
+
+/**
  * Carrega todas as texturas do jogo 2D.
  */
 void loadGameTextures()
@@ -374,9 +397,9 @@ void updateAllButtonPositions(int w, int h)
     levelButtons[i].x = startX;
     levelButtons[i].y = startSubMenuY + i * (buttonHeight + spacing);
     if (currentState == STATE_LEVEL_SELECT_2D)
-        levelButtons[i].enabled = (i + 1 <= maxLevelUnlocked_2D);
+      levelButtons[i].enabled = (i + 1 <= maxLevelUnlocked_2D);
     else
-        levelButtons[i].enabled = (i + 1 <= maxLevelUnlocked_3D);
+      levelButtons[i].enabled = (i + 1 <= maxLevelUnlocked_3D);
   }
 
   instrBackButton.x = margin;
@@ -629,8 +652,10 @@ void mouseClick(int button, int state, int x, int y)
             gameStartLevel_3D(activeLevel_3D);
             loadGameTextures_3D();
 
-            glutMotionFunc(gameMouseMotion_3D);        // Para movimento com botão pressionado
-            glutPassiveMotionFunc(gameMouseMotion_3D); // Para movimento SEM botão pressionado
+            glutMotionFunc(gameMouseMotion_3D);
+            glutPassiveMotionFunc(gameMouseMotion_3D);
+
+            reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
 
             glutTimerFunc(16, timer, 0);
             break;
@@ -744,24 +769,32 @@ void timer(int value)
 
   // Lida com a ação retornada
   if (action == GAME_ACTION_LEVEL_WON)
-{
+  {
     if (originalState == STATE_GAME_2D)
     {
-        if (activeLevel_2D == maxLevelUnlocked_2D && maxLevelUnlocked_2D < NUM_LEVELS)
-            maxLevelUnlocked_2D++;
-        currentState = STATE_LEVEL_SELECT_2D;
+      if (activeLevel_2D == maxLevelUnlocked_2D && maxLevelUnlocked_2D < NUM_LEVELS)
+        maxLevelUnlocked_2D++;
+      currentState = STATE_LEVEL_SELECT_2D;
     }
     else // 3D
     {
-        if (activeLevel_3D == maxLevelUnlocked_3D && maxLevelUnlocked_3D < NUM_LEVELS)
-            maxLevelUnlocked_3D++;
-        currentState = STATE_LEVEL_SELECT_3D;
+      // --- ALTERAÇÃO AQUI: Limpa estado 3D antes de voltar ao menu ---
+      exitGame3DMode();
+
+      if (activeLevel_3D == maxLevelUnlocked_3D && maxLevelUnlocked_3D < NUM_LEVELS)
+        maxLevelUnlocked_3D++;
+      currentState = STATE_LEVEL_SELECT_3D;
     }
 
     reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
-}
+  }
   else if (action == GAME_ACTION_LEVEL_LOST)
   {
+    // --- ALTERAÇÃO AQUI: Limpa estado 3D antes de voltar ao menu ---
+    if (originalState == STATE_GAME_3D) {
+        exitGame3DMode();
+    }
+
     // Volta para o menu de seleção de nível correto
     currentState = (originalState == STATE_GAME_2D) ? STATE_LEVEL_SELECT_2D : STATE_LEVEL_SELECT_3D;
     reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
@@ -828,15 +861,16 @@ void init()
 int main(int argc, char **argv)
 {
   glutInit(&argc, argv);
-  glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);  
+  glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
   glutInitWindowSize(INITIAL_WIN_WIDTH, INITIAL_WIN_HEIGHT);
   glutInitWindowPosition(100, 100);
   glutCreateWindow("Gancho");
 
   GLenum err = glewInit();
-  if (GLEW_OK != err) {
-      fprintf(stderr, "Erro GLEW: %s\n", glewGetErrorString(err));
-      return 1;
+  if (GLEW_OK != err)
+  {
+    fprintf(stderr, "Erro GLEW: %s\n", glewGetErrorString(err));
+    return 1;
   }
 
   init();
