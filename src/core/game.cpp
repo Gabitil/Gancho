@@ -19,6 +19,7 @@
 // #include <GL/freeglut.h>
 
 #include "utils.h"
+#include "audio.h"
 
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS
