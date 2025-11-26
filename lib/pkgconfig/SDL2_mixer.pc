@@ -1,4 +1,4 @@
-prefix=/tmp/tardir/SDL2_mixer-2.8.1/build-mingw/install-i686-w64-mingw32
+prefix=/tmp/tardir/SDL2_mixer-2.8.1/build-mingw/install-x86_64-w64-mingw32
 exec_prefix=${prefix}
 libdir=${prefix}/lib
 includedir=${prefix}/include

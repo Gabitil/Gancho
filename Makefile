@@ -129,7 +129,6 @@ endif
 
 limpar:
 	$(call RM,$(OBJ_DIR))
-	$(call RM,$(BIN_DIR))
 	@echo Limpeza concluída.
 
 .PHONY: all compilar executar limpar run
