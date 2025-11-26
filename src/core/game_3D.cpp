@@ -89,6 +89,11 @@ float cameraPosZ_3D = 200.0f;
  */
 float cameraYaw_3D = -90.0f; // Rotação horizontal (eixo Y)
 float cameraPitch_3D = 0.0f; // Rotação vertical (eixo X)
+float aimPitch_3D = 20.0f;   // NOVO: Ângulo real da mira
+
+// Limites
+const float CAMERA_STOP_PITCH = 30.0f; // A câmera para de subir aqui
+const float MAX_AIM_PITCH = 85.0f;     // A mira continua até aqui
 
 /**
  * Vetor unitário que define a direção para onde o player está olhando (Direção do Tiro).
@@ -386,6 +391,175 @@ void drawGameOverScreen(int w, int h)
     drawTextCentered(w / 2.0f, h / 2.0f + 20, "Reiniciando...", GLUT_BITMAP_HELVETICA_18);
 }
 
+void drawPhysicsDebugHUD_3D()
+{
+    // Configura projeção 2D para UI
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    int w = glutGet(GLUT_WINDOW_WIDTH);
+    int h = glutGet(GLUT_WINDOW_HEIGHT);
+    gluOrtho2D(0, w, h, 0); // 0,0 no topo esquerdo
+
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_LIGHTING);
+
+    // --- Coleta de Dados ---
+    std::vector<std::string> infoLines;
+    char buffer[100];
+
+    // 1. Velocidade (Módulo 3D)
+    float vMag = sqrt(player_3D.velocityX * player_3D.velocityX +
+                      player_3D.velocityY * player_3D.velocityY +
+                      player_3D.velocityZ * player_3D.velocityZ);
+    sprintf(buffer, "v: %.1f m/s", vMag);
+    infoLines.push_back(buffer);
+
+    // 2. Aceleração (Calculada no Update)
+    sprintf(buffer, "a: %.2f m/s^2", currentAcceleration_3D);
+    infoLines.push_back(buffer);
+
+    // 3. Peso (P = m * g)
+    float weightForce = levelParameters_3D.gravity * levelParameters_3D.playerMass;
+    sprintf(buffer, "P: %.2f N", weightForce);
+    infoLines.push_back(buffer);
+
+    // 4. Normal e Atrito (Se no chão)
+    if (isGrounded_3D)
+    {
+        // Normal (considerando apenas a componente Y que calculamos)
+        sprintf(buffer, "N: %.2f N", forceNormalY_3D);
+        infoLines.push_back(buffer);
+
+        // Atrito (Módulo do vetor de atrito XZ)
+        float fricMag = sqrt(forceFrictionX_3D * forceFrictionX_3D + forceFrictionZ_3D * forceFrictionZ_3D);
+        if (fricMag > 0.001f)
+        {
+            sprintf(buffer, "Fat: %.2f N", fricMag);
+            infoLines.push_back(buffer);
+        }
+    }
+
+    // 5. Tensão (Se no gancho)
+    if (isHooked_3D)
+    {
+        // A força de tração é currentPullForce * massa (na sua lógica antiga multiplicava por massa no display)
+        // Se currentPullForce_3D já for força (Newton), tire a multiplicação.
+        // Assumindo que no 3D definimos currentPullForce como aceleração ou força pura.
+        // No 2D você fazia: currentPullForce * playerMass. Vamos manter a consistência.
+        float tensionN = currentChargeForce_3D; // No update 3D, currentPullForce é derivado da carga
+        sprintf(buffer, "T: %.2f N", tensionN);
+        infoLines.push_back(buffer);
+    }
+
+    // 6. Coeficientes de Atrito das Plataformas Visíveis
+    // No 3D "visível" é mais complexo, vamos listar apenas a plataforma que estamos colidindo
+    if (collidingPlatform_3D)
+    {
+        sprintf(buffer, "mu_chao: %.2f", collidingPlatform_3D->frictionCoefficient);
+        infoLines.push_back(buffer);
+    }
+
+    // --- Renderização do Bloco ---
+    float lineHeight = 15.0f;
+    float margin = 10.0f;
+    float padding = 20.0f;
+
+    // Calcula largura máxima
+    float maxWidth = 0;
+    for (const auto &line : infoLines)
+    {
+        // getTextWidth deve estar disponível via utils.h
+        maxWidth = std::max(maxWidth, (float)getTextWidth(line.c_str(), GLUT_BITMAP_9_BY_15));
+    }
+
+    float blockWidth = maxWidth + (2 * padding) + 10.0f;
+    float blockHeight = (infoLines.size() * lineHeight) + (2 * padding) + 5.0f;
+    float blockX = w - margin - blockWidth;
+    float blockY = margin;
+
+    // Fundo
+    if (texDisplayGrappler != 0)
+    {
+        glColor3f(1, 1, 1);
+        drawTexturedRect(blockX, blockY, blockWidth, blockHeight, texDisplayGrappler, false, false);
+    }
+    else
+    {
+        drawRect(blockX, blockY, blockWidth, blockHeight, 0.0f, 0.0f, 0.0f, 0.7f); // Preto transparente
+    }
+
+    // Texto
+    float currentY = blockY + padding + 10;
+    for (const auto &line : infoLines)
+    {
+        glColor3f(1.0f, 1.0f, 1.0f);
+        drawText(blockX + padding, currentY, line.c_str(), GLUT_BITMAP_9_BY_15);
+        currentY += lineHeight;
+    }
+
+    // Restaura
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_LIGHTING);
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
+}
+
+void drawShotCounterHUD_3D()
+{
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    int w = glutGet(GLUT_WINDOW_WIDTH);
+    int h = glutGet(GLUT_WINDOW_HEIGHT);
+    gluOrtho2D(0, w, h, 0);
+
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_LIGHTING);
+
+    char shotText[50];
+    // Usando levelParameters_3D.maxShots (se existir na struct, senão use um valor fixo ou adicione)
+    // Assumindo que 'shotsRemaining_3D' é global
+    int maxShots = 5; // Valor padrão ou levelParameters_3D.maxShots
+    sprintf(shotText, "Disparos: %d / %d", shotsRemaining_3D, maxShots);
+
+    float textWidth = getTextWidth(shotText, GLUT_BITMAP_9_BY_15);
+    float padding = 18.0f;
+    float blockWidth = textWidth + (2 * padding) + 20.0f;
+    float blockHeight = 6.0f + (2 * padding) + 6.0f;
+    float blockX = w / 2.0f - blockWidth / 2.0f;
+    float blockY = 10.0f;
+
+    if (texDisplayGrappler != 0)
+    {
+        glColor3f(1, 1, 1);
+        drawTexturedRect(blockX, blockY, blockWidth, blockHeight, texDisplayGrappler, false, false);
+    }
+    else
+    {
+        drawRect(blockX, blockY, blockWidth, blockHeight, 0.0f, 0.0f, 0.0f, 0.7f);
+    }
+
+    glColor3f(1.0f, 1.0f, 1.0f);
+    drawTextCentered(w / 2.0f, blockY + padding + 10, shotText, GLUT_BITMAP_9_BY_15);
+
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_LIGHTING);
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
+}
+
 /**
  * Desenha a barra de carregamento do gancho
  */
@@ -451,8 +625,37 @@ void drawHUD()
     }
     else
     {
-        // Jogo rodando normal
+        // Jogo Rodando:
         drawChargeBar(w, h);
+
+        // --- NOVAS CHAMADAS ---
+        drawPhysicsDebugHUD_3D();
+        drawShotCounterHUD_3D();
+
+        // --- MIRA (CROSSHAIR) ---
+        float centerX = w / 2.0f;
+        float centerY = h / 2.0f;
+
+        // Cálculo do Deslocamento da Mira
+        // Se aimPitch > cameraPitch, a mira está "acima" da visão da câmera.
+        // Na tela 2D (0 no topo), "acima" significa diminuir Y.
+        // Multiplicador 10.0f define quantos pixels sobe por grau de diferença.
+        float pitchDiff = aimPitch_3D - cameraPitch_3D;
+        float offsetY = pitchDiff * 15.0f;
+
+        float crossX = centerX;
+        float crossY = centerY - offsetY;
+
+        // Desenha a cruz (Verde)
+        glColor3f(0.0f, 1.0f, 0.0f);
+        glLineWidth(2.0f);
+        float size = 10.0f;
+        glBegin(GL_LINES);
+        glVertex2f(crossX - size, crossY);
+        glVertex2f(crossX + size, crossY);
+        glVertex2f(crossX, crossY - size);
+        glVertex2f(crossX, crossY + size);
+        glEnd();
     }
 
     // Restaura matrizes e estados 3D
@@ -470,54 +673,105 @@ void drawHUD()
 /**
  * Desenha os vetores de debug (Normal, Atrito, Peso, Velocidade).
  */
-void drawDebugVectors() {
-    // 1. CALCULAR AS COORDENADAS (Correção do erro)
+/**
+ * Desenha os vetores de debug (Normal, Atrito, Peso, Velocidade, Tensão).
+ * Equivalente visual ao jogo 2D.
+ */
+void drawDebugVectors()
+{
+    // 1. Definir pontos de origem
+    // Centro de Massa (para Peso, Velocidade, Tensão)
     float cx = player_3D.x + player_3D.w / 2.0f;
     float cy = player_3D.y + player_3D.h / 2.0f;
     float cz = player_3D.z + player_3D.d / 2.0f;
-
-    // Agora podemos usar cx, cy, cz
     Vector_3D center = {cx, cy, cz};
-    Vector_3D feet   = {cx, cy - player_3D.h / 2.0f, cz};
 
-    float scale = levelParameters_3D.vectorVisualScale;
+    // Pés (para Normal e Atrito)
+    Vector_3D feet = {cx, cy - player_3D.h / 2.0f, cz};
 
-    // 2. PESO (P) - Sempre desenha (Roxo)
-    // P = m * g
-    float weightForce = levelParameters_3D.playerMass * levelParameters_3D.gravity;
-    Vector_3D vecPeso = {0, -weightForce, 0}; 
-    drawVector_3D(center, vecPeso, scale, 1.0f, 0.0f, 1.0f, "P");
+    // Escala para Forças (Newton -> Tamanho Visual)
+    float scaleForce = levelParameters_3D.vectorVisualScale;
 
-    // 3. VELOCIDADE (V) - (Verde)
-    float vMag = sqrt(player_3D.velocityX*player_3D.velocityX + 
-                      player_3D.velocityY*player_3D.velocityY + 
-                      player_3D.velocityZ*player_3D.velocityZ);
-    
-    if (vMag > 0.1f) {
-        Vector_3D vecVel = {player_3D.velocityX, player_3D.velocityY, player_3D.velocityZ};
-        // Escala fixa (0.5f) ou ajustável para velocidade não ficar gigante
-        drawVector_3D(center, vecVel, 0.5f, 0.0f, 1.0f, 0.0f, "V"); 
+    // ---------------------------------------------------
+    // A. VETOR PESO (P) - Roxo/Magenta
+    // Sempre presente. P = m * g (Aponta para baixo)
+    // ---------------------------------------------------
+    float weightVal = levelParameters_3D.playerMass * levelParameters_3D.gravity;
+    Vector_3D vecP = {0, -weightVal, 0};
+
+    // Cria um ponto deslocado apenas para desenhar o peso
+    Vector_3D weightPos = {center.x + 2.0f, center.y, center.z};
+    drawVector_3D(center, vecP, scaleForce, 1.0f, 0.0f, 1.0f, "P");
+
+    // ---------------------------------------------------
+    // B. VETOR VELOCIDADE (V) - Verde
+    // Usa uma escala diferente (cinemática vs dinâmica)
+    // ---------------------------------------------------
+    float vMag = sqrt(player_3D.velocityX * player_3D.velocityX +
+                      player_3D.velocityY * player_3D.velocityY +
+                      player_3D.velocityZ * player_3D.velocityZ);
+
+    if (vMag > 0.1f)
+    {
+        // Se quiser usar VELOCITY_VISUAL_SCALE_3D (7.0f) definido no header:
+        float scaleVel = 0.5f; // Ou use: VELOCITY_VISUAL_SCALE_3D * 0.1f;
+
+        Vector_3D vecV = {player_3D.velocityX, player_3D.velocityY, player_3D.velocityZ};
+        drawVector_3D(center, vecV, scaleVel, 0.0f, 1.0f, 0.0f, "V");
     }
 
-    // 4. NORMAL E ATRITO (Apenas se estiver no chão)
-    if (isGrounded_3D) {
+    // ---------------------------------------------------
+    // C. FORÇAS DE CONTATO (Se estiver no chão)
+    // ---------------------------------------------------
+    if (isGrounded_3D)
+    {
         // Normal (N) - Azul Ciano
-        Vector_3D vecNormal = {0, forceNormalY_3D, 0};
-        drawVector_3D(feet, vecNormal, scale, 0.0f, 1.0f, 1.0f, "N");
-        
+        // Aponta para cima perpendicular ao chão
+        Vector_3D vecN = {0, forceNormalY_3D, 0};
+        drawVector_3D(feet, vecN, scaleForce, 0.0f, 1.0f, 1.0f, "N");
+
         // Atrito (Fat) - Vermelho
-        if (fabs(forceFrictionX_3D) > 0.1f || fabs(forceFrictionZ_3D) > 0.1f) {
-            // Desenha um pouco acima do chão (+0.1f) para não sumir na grade
+        // Aponta contra o movimento
+        float fricMag = sqrt(forceFrictionX_3D * forceFrictionX_3D + forceFrictionZ_3D * forceFrictionZ_3D);
+        if (fricMag > 0.1f)
+        {
+            // Desenhamos um pouquinho acima do pé (+0.1 em Y) para a linha não sumir dentro da grade do chão
             Vector_3D feetRaised = {feet.x, feet.y + 0.1f, feet.z};
-            Vector_3D vecFriction = {forceFrictionX_3D, 0, forceFrictionZ_3D};
-            drawVector_3D(feetRaised, vecFriction, scale, 1.0f, 0.0f, 0.0f, "Fat");
+            Vector_3D vecFat = {forceFrictionX_3D, 0, forceFrictionZ_3D};
+            drawVector_3D(feetRaised, vecFat, scaleForce, 1.0f, 0.0f, 0.0f, "Fat");
         }
     }
 
-    // 5. TENSÃO (T) - (Amarelo)
-    if (isHooked_3D) {
-        Vector_3D vecTensao = {forceTensionX_3D, forceTensionY_3D, forceTensionZ_3D};
-        drawVector_3D(center, vecTensao, scale, 1.0f, 1.0f, 0.0f, "T");
+    // ---------------------------------------------------
+    // D. TENSÃO (T) - Amarelo
+    // Se estiver pendurado no gancho
+    // ---------------------------------------------------
+    if (isHooked_3D)
+    {
+        Vector_3D vecT = {forceTensionX_3D, forceTensionY_3D, forceTensionZ_3D};
+        drawVector_3D(center, vecT, scaleForce, 1.0f, 1.0f, 0.0f, "T");
+    }
+
+    // ---------------------------------------------------
+    // E. MIRA/LANÇAMENTO (Se estiver mirando/carregando)
+    // ---------------------------------------------------
+    if (isChargingHook_3D && !isHooked_3D)
+    {
+        // Calcula vetor de lançamento baseado na carga atual
+        // Direção da câmera (recalculada aqui ou pega globais se tiver)
+        float yawRad = cameraYaw_3D * M_PI / 180.0f;
+        float pitchRad = cameraPitch_3D * M_PI / 180.0f;
+
+        float dirX = -sin(yawRad) * cos(pitchRad);
+        float dirY = sin(pitchRad);
+        float dirZ = -cos(yawRad) * cos(pitchRad);
+
+        // Vetor Força de Lançamento
+        float forceVal = currentChargeForce_3D; // Valor calculado no update
+        Vector_3D vecAim = {dirX * forceVal, dirY * forceVal, dirZ * forceVal};
+
+        // Desenha em Branco/Cinza saindo do player
+        drawVector_3D(center, vecAim, scaleForce, 0.8f, 0.8f, 0.8f, "F_imp");
     }
 }
 
@@ -541,7 +795,7 @@ void gameStartLevel_3D(int level)
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
 
-    // AJUSTE 1: CÉU AZUL (Igual ao seu pedido)
+    // AJUSTE 1: CÉU AZUL
     glClearColor(0.5f, 0.7f, 1.0f, 1.0f);
 
     // --- Inicialização do Player ---
@@ -558,11 +812,12 @@ void gameStartLevel_3D(int level)
     isPressingLeft_3D = false;
     isPressingRight_3D = false;
 
-    // --- Configuração da Câmera (Ajuste de Distância) ---
+    // --- Configuração da Câmera ---
     cameraYaw_3D = 0.0f;
     cameraPitch_3D = 20.0f;
+    aimPitch_3D = 20.0f;
 
-    // AJUSTE 2: CÂMERA MAIS PRÓXIMA (Igual ao modelo antigo: 15.0f)
+    // AJUSTE 2: Câmera mais afastada (De 25.0f para 40.0f)
     cameraDistance = 25.0f;
 
     // Resetar Física
@@ -596,7 +851,7 @@ void gameStartLevel_3D(int level)
     glutWarpPointer(w / 2, h / 2);
     mouseInitialized_3D = false;
 
-    // --- Carregamento do Nível (Mantido) ---
+    // --- Carregamento do Nível ---
     switch (level)
     {
     case 1:
@@ -604,18 +859,23 @@ void gameStartLevel_3D(int level)
         levelParameters_3D.playerWalkAccel = 60.0f;
         levelParameters_3D.maxWalkSpeed = 15.0f;
         levelParameters_3D.maxPlayerSpeed = 30.0f;
-        levelParameters_3D.vectorVisualScale = 0.06f;
+
+        // AJUSTE 3: Escala visual (100N = 2x Altura do Player -> 0.04f)
+        levelParameters_3D.vectorVisualScale = 0.04f;
+
         levelParameters_3D.gravity = 20.0f;
 
         platforms_3D.push_back({-WORLD_WIDTH_3D / 2, -1.0f, -WORLD_DEPTH_3D / 2, WORLD_WIDTH_3D, 1.0f, WORLD_DEPTH_3D, 0.4f, 0.4f, 0.4f, true, 0.8f});
         platforms_3D.push_back({-20.0f, 5.0f, 10.0f, 10.0f, 1.0f, 20.0f, 0.4f, 0.4f, 0.4f, true, 0.2f});
         breakableWalls_3D.push_back({10.0f, 1.0f, 0.0f, 1.0f, 5.0f, 10.0f, 0.6f, 0.3f, 0.0f, 50.0f, false});
+
         door_3D.x = 40.0f;
         door_3D.y = 1.0f;
         door_3D.z = 0.0f;
         door_3D.w = 1.0f;
         door_3D.h = 4.0f;
         door_3D.d = 1.0f;
+
         player_3D.x = 0.0f;
         player_3D.y = 3.0f;
         player_3D.z = 0.0f;
@@ -624,7 +884,11 @@ void gameStartLevel_3D(int level)
     case 2:
         levelParameters_3D.playerMass = 8.0f;
         levelParameters_3D.playerWalkAccel = 70.0f;
+        // Mantém a escala visual consistente entre fases
+        levelParameters_3D.vectorVisualScale = 0.04f;
+
         platforms_3D.push_back({-WORLD_WIDTH_3D / 2, -1.0f, -WORLD_DEPTH_3D / 2, WORLD_WIDTH_3D, 1.0f, WORLD_DEPTH_3D, 0.2f, 0.2f, 0.5f, true, 0.7f});
+
         player_3D.x = 0.0f;
         player_3D.y = 3.0f;
         player_3D.z = 0.0f;
@@ -822,7 +1086,7 @@ GameAction gameUpdate_3D()
             hookProjectileY_3D = pCy;
             hookProjectileZ_3D = pCz;
             float yawRad = cameraYaw_3D * M_PI / 180.0f;
-            float pitchRad = cameraPitch_3D * M_PI / 180.0f;
+            float pitchRad = aimPitch_3D * M_PI / 180.0f;
             float dirX = -sin(yawRad) * cos(pitchRad);
             float dirY = sin(pitchRad);
             float dirZ = -cos(yawRad) * cos(pitchRad);
@@ -1013,45 +1277,29 @@ void gameDisplay_3D()
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    // --- CONFIGURAÇÃO DA CÂMERA (AJUSTADA) ---
-
-    // Converte ângulos para radianos
+    // --- CONFIGURAÇÃO DA CÂMERA ---
     float yawRad = cameraYaw_3D * M_PI / 180.0f;
     float pitchRad = cameraPitch_3D * M_PI / 180.0f;
 
-    // Centro do Player (Pivô da rotação)
     float cx = player_3D.x + player_3D.w / 2.0f;
     float cy = player_3D.y + player_3D.h / 2.0f;
     float cz = player_3D.z + player_3D.d / 2.0f;
 
-    // Distância fixa para esta visualização (Mais perto, como pediu)
-    float visualDistance = 10.0f;
+    float camX = cx + cameraDistance * cos(pitchRad) * sin(yawRad);
+    float camY = cy + cameraDistance * sin(pitchRad);
+    float camZ = cz + cameraDistance * cos(pitchRad) * cos(yawRad);
 
-    // Posição da Câmera (Olho)
-    // A câmera orbita ao redor do centro do player
-    float camX = cx + visualDistance * cos(pitchRad) * sin(yawRad);
-    float camY = cy + visualDistance * sin(pitchRad);
-    float camZ = cz + visualDistance * cos(pitchRad) * cos(yawRad);
-
-    // Ponto de Mira (Target)
-    // TRUQUE VISUAL: Olhamos para um ponto ACIMA do player (+ 3.0f).
-    // Isso faz o player descer visualmente para a parte inferior da tela.
     float targetY = cy + 3.0f;
 
-    gluLookAt(camX, camY, camZ,  // Onde a câmera está
-              cx, targetY, cz,   // Para onde ela olha (acima do player)
-              0.0f, 1.0f, 0.0f); // Vetor Up
+    gluLookAt(camX, camY, camZ, cx, targetY, cz, 0.0f, 1.0f, 0.0f);
 
     // Luz
     GLfloat lightPos[] = {0.0f, 100.0f, 0.0f, 1.0f};
     glLightfv(GL_LIGHT0, GL_POSITION, lightPos);
 
     // --- 2. CENÁRIO ---
-
-    // Grade do Chão
     glCallList(floorListID);
 
-    // VBOs (Física)
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
     glEnableClientState(GL_NORMAL_ARRAY);
@@ -1081,7 +1329,6 @@ void gameDisplay_3D()
     glDisableClientState(GL_NORMAL_ARRAY);
 
     // --- 3. OBJETOS DINÂMICOS ---
-
     // Porta
     glPushMatrix();
     glTranslatef(door_3D.x, door_3D.y, door_3D.z);
@@ -1091,130 +1338,107 @@ void gameDisplay_3D()
     glutSolidCube(1.0);
     glPopMatrix();
 
-    // Player (Cubo Vermelho)
+    // Player
     glPushMatrix();
     glTranslatef(player_3D.x, player_3D.y, player_3D.z);
     glTranslatef(player_3D.w / 2, player_3D.h / 2, player_3D.d / 2);
     glScalef(player_3D.w, player_3D.h, player_3D.d);
-
     if (isGameOver_3D)
         glColor3f(0.2f, 0.0f, 0.0f);
     else
         glColor3f(1.0f, 0.0f, 0.0f);
-
     glutSolidCube(1.0);
     glPopMatrix();
 
-    // Corda (Gancho)
+    // Corda
     if (isHooked_3D || isHookFiring_3D)
     {
         glDisable(GL_LIGHTING);
         glLineWidth(2.0f);
         glColor3f(0.8f, 0.8f, 0.8f);
         glBegin(GL_LINES);
-        glVertex3f(cx, cy, cz); // Sai do centro do player
+        glVertex3f(cx, cy, cz);
         if (isHookFiring_3D)
-        {
             glVertex3f(hookProjectileX_3D, hookProjectileY_3D, hookProjectileZ_3D);
-        }
         else
-        {
             glVertex3f(hookPointX_3D, hookPointY_3D, hookPointZ_3D);
-        }
         glEnd();
         glEnable(GL_LIGHTING);
     }
 
     // --- 4. VETORES FÍSICOS (Debug) ---
-    if (isGrounded_3D)
-    {
-        Vector_3D feet = {cx, cy - player_3D.h / 2, cz};
-
-        // Normal
-        Vector_3D norm = {0, forceNormalY_3D, 0};
-        drawVector_3D(feet, norm, levelParameters_3D.vectorVisualScale, 0, 1, 1, "N");
-
-        // Atrito
-        if (abs(forceFrictionX_3D) > 0.1f || abs(forceFrictionZ_3D) > 0.1f)
-        {
-            Vector_3D fric = {forceFrictionX_3D, 0, forceFrictionZ_3D};
-            drawVector_3D(feet, fric, levelParameters_3D.vectorVisualScale, 1, 0, 0, "Fat");
-        }
-    }
+    // AQUI ESTAVA FALTANDO A CHAMADA PRINCIPAL!
+    drawDebugVectors();
 
     // --- 5. HUD (Overlay 2D) ---
-    // Configura projeção ortográfica para desenhar na tela (pixels)
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
     int w = glutGet(GLUT_WINDOW_WIDTH);
     int h = glutGet(GLUT_WINDOW_HEIGHT);
-    gluOrtho2D(0, w, h, 0); // Y invertido: 0 no topo (padrão para UI)
+    gluOrtho2D(0, w, h, 0);
 
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadIdentity();
 
-    glDisable(GL_DEPTH_TEST); // Desenha na frente de tudo
-    glDisable(GL_LIGHTING);   // Sem iluminação para UI
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_LIGHTING);
 
-    // --- LÓGICA DE TELAS FINAIS ---
+    // --- LÓGICA DE TELAS E HUD ---
     if (isGameVictory_3D)
     {
-        // Fundo Verde Semi-Transparente
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        // drawRect(x, y, w, h, r, g, b, alpha)
-        drawRect(0, 0, w, h, 0.0f, 0.8f, 0.0f, 0.5f);
-        glDisable(GL_BLEND);
-
-        // Texto de Vitória
-        glColor3f(1.0f, 1.0f, 1.0f); // Branco
-        drawTextCentered(w / 2.0f, h / 2.0f - 20, "NIVEL COMPLETADO!", GLUT_BITMAP_TIMES_ROMAN_24);
-        drawTextCentered(w / 2.0f, h / 2.0f + 20, "Aguarde...", GLUT_BITMAP_HELVETICA_18);
+        drawVictoryScreen(w, h);
     }
     else if (isGameOver_3D)
     {
-        // Fundo Vermelho Semi-Transparente
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        // drawRect(x, y, w, h, r, g, b, alpha)
-        drawRect(0, 0, w, h, 0.8f, 0.0f, 0.0f, 0.5f);
-        glDisable(GL_BLEND);
-
-        // Texto de Derrota
-        glColor3f(1.0f, 1.0f, 1.0f); // Branco
-        drawTextCentered(w / 2.0f, h / 2.0f - 20, "GAME OVER", GLUT_BITMAP_TIMES_ROMAN_24);
-        drawTextCentered(w / 2.0f, h / 2.0f + 20, "Reiniciando...", GLUT_BITMAP_HELVETICA_18);
+        drawGameOverScreen(w, h);
     }
     else
     {
-        // --- HUD DURANTE O JOGO (Barra de Carga) ---
+        // Jogo Rodando: Mostra o HUD
+
+        // 1. Barra de Carga
         if (isChargingHook_3D)
         {
-            float barCX = w / 2.0f;
-            float barCY = h - 60.0f; // Perto do fundo
-            float barW = 200.0f;
-            float barH = 15.0f;
-
-            // Fundo da barra (Cinza Escuro)
-            drawRect(barCX - barW / 2, barCY, barW, barH, 0.3f, 0.3f, 0.3f);
-
-            // Preenchimento (Gradiente simples Amarelo -> Vermelho)
-            float fillW = barW * chargePercentage_3D;
-            // drawRect(x, y, w, h, r, g, b)
-            drawRect(barCX - barW / 2, barCY, fillW, barH, 1.0f, 1.0f - chargePercentage_3D, 0.0f);
-
-            // Borda Branca (Opcional, usando GL_LINE_LOOP direto pois drawRect preenche)
-            glColor3f(1.0f, 1.0f, 1.0f);
-            glLineWidth(1.0f);
-            glBegin(GL_LINE_LOOP);
-            glVertex2f(barCX - barW / 2, barCY);
-            glVertex2f(barCX + barW / 2, barCY);
-            glVertex2f(barCX + barW / 2, barCY + barH);
-            glVertex2f(barCX - barW / 2, barCY + barH);
-            glEnd();
+            drawChargeBar(w, h); // Assumindo que você tem essa função ou o código inline
         }
+
+        // 2. Painel de Física (Velocidade, Forças) -> AQUI!
+        drawPhysicsDebugHUD_3D();
+
+        // 3. Contador de Tiros -> AQUI!
+        drawShotCounterHUD_3D();
+
+        // --- 4. MIRA (CROSSHAIR) ---
+        float centerX = w / 2.0f;
+        float centerY = h / 2.0f;
+
+        // Cálculo do Deslocamento
+        // aimPitch_3D (Mira) vs cameraPitch_3D (Câmera travada)
+        // Exemplo: Mira no céu (-60) - Câmera travada (-20) = -40 (Diferença)
+        float pitchDiff = aimPitch_3D - cameraPitch_3D;
+        
+        // Sensibilidade visual (pixels por grau)
+        float pixelsPerDegree = 12.0f; 
+        
+        // Como Y=0 é no topo da tela:
+        // Se pitchDiff é negativo (olhando pra cima), queremos diminuir o Y.
+        // Então somamos o número negativo.
+        float crossY = centerY + (pitchDiff * pixelsPerDegree); 
+
+        // Desenha a cruz (Verde)
+        glColor3f(0.0f, 1.0f, 0.0f);
+        glLineWidth(2.0f);
+        float size = 10.0f;
+        glBegin(GL_LINES);
+            // Linha Horizontal
+            glVertex2f(centerX - size, crossY); 
+            glVertex2f(centerX + size, crossY);
+            // Linha Vertical
+            glVertex2f(centerX, crossY - size); 
+            glVertex2f(centerX, crossY + size);
+        glEnd();
     }
 
     // Restaura estado OpenGL
@@ -1264,14 +1488,12 @@ void gameReshape_3D(int w, int h)
  */
 void gameMouseMotion_3D(int x, int y)
 {
-    if (isMouseFree_3D)
-        return;
+    if (isMouseFree_3D) return;
     int w = glutGet(GLUT_WINDOW_WIDTH);
     int h = glutGet(GLUT_WINDOW_HEIGHT);
     int cx = w / 2, cy = h / 2;
 
-    if (!mouseInitialized_3D)
-    {
+    if (!mouseInitialized_3D) {
         mouseInitialized_3D = true;
         glutWarpPointer(cx, cy);
         return;
@@ -1280,17 +1502,29 @@ void gameMouseMotion_3D(int x, int y)
     float dx = (float)(x - cx);
     float dy = (float)(cy - y);
 
-    if (dx == 0 && dy == 0)
-        return;
+    if (dx == 0 && dy == 0) return;
 
+    // 1. Yaw (Horizontal)
     cameraYaw_3D -= dx * MOUSE_SENSITIVITY_3D;
 
-    cameraPitch_3D -= dy * MOUSE_SENSITIVITY_3D;
+    // 2. Pitch (Vertical) - MIRA (Aim)
+    // Mouse Cima -> Valor Diminui (Negativo = Olhar pro Céu)
+    aimPitch_3D -= dy * MOUSE_SENSITIVITY_3D;
 
-    if (cameraPitch_3D > MAX_PITCH_3D)
-        cameraPitch_3D = MAX_PITCH_3D;
-    if (cameraPitch_3D < MIN_PITCH_3D)
-        cameraPitch_3D = MIN_PITCH_3D;
+    // Trava absoluta da mira (Pode olhar totalmente para cima ou para baixo)
+    if (aimPitch_3D < -89.0f) aimPitch_3D = -89.0f; 
+    if (aimPitch_3D > 89.0f)  aimPitch_3D = 89.0f;
+
+    // 3. Pitch da CÂMERA (Segue a mira, mas com cinto de segurança)
+    cameraPitch_3D = aimPitch_3D;
+
+    // LIMITADOR INFERIOR (Olhar para o Céu -> Câmera desce)
+    // Se o ângulo for menor que 5.0f (ou seja, indo para 0 ou negativo),
+    // travamos em 5.0f para a câmera ficar sempre um pouco acima da linha da cintura.
+    // Isso impede que ela entre no chão.
+    if (cameraPitch_3D < MIN_PITCH_3D) { 
+       cameraPitch_3D = MIN_PITCH_3D; 
+    }
 
     glutWarpPointer(cx, cy);
 }

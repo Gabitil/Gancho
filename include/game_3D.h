@@ -19,6 +19,7 @@
 
 // Bibliotecas padrão
 #include <stdio.h>
+#include <string>
 #include <cmath>
 #include <vector>
 #include <algorithm>
