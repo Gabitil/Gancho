@@ -68,7 +68,7 @@ CXX = g++
 # Define onde o compilador deve procurar arquivos de cabeçalho (.h)
 # Adicionamos -Isrc/core, -Isrc/ui, e -Isrc/util para que os includes funcionem
 CXXFLAGS = -I. -Iinclude -Isrc/core -Isrc/ui -Isrc/util -Isrc/audio -g -Wall -std=c++17 -DGLEW_STATIC
-LDFLAGS = -Llib
+LDFLAGS =
 
 OBJ_DIR = obj
 BIN_DIR = bin
@@ -88,6 +88,9 @@ ifeq ($(OS),Windows_NT)
     SHELLFLAGS := /C
     MKDIR = if not exist $(subst /,\,$(1)) mkdir $(subst /,\,$(1))
     RM = if exist $(subst /,\,$(1)) rmdir /S /Q $(subst /,\,$(1))
+
+	LDFLAGS += -Llib
+
     # SDL2 + SDL2_mixer (esperando os .a/.lib em lib/)
     LIBS = -lSDL2_mixer -lSDL2 -lSDL2main \
            -lglew32 -lfreeglut -lglu32 -lopengl32 -lgdi32 -lwinmm
