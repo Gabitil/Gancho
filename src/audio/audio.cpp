@@ -1,4 +1,4 @@
-// src/util/audio.cpp
+// src/audio/audio.cpp
 #include "audio.h"
 
 #include <SDL2/SDL.h>
