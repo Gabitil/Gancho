@@ -8,8 +8,11 @@
 #ifndef GAME_H
 #define GAME_H
 
-// Mesmo que o jogo 2D não use GLEW explicitamente, incluímos
-// para evitar conflitos se este header for chamado antes de outros.
+/**
+ * Mesmo que o jogo 2D não use GLEW explicitamente, incluímos para evitar conflitos 
+ * se este header for chamado antes de outros visto que o jogo 2D foi desenvolvido antes do 3D. 
+ * No entanto, tentamos evitar ao máximo essa possibilidade
+ * */ 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
 

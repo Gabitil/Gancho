@@ -1,8 +1,16 @@
-#ifndef GAME_STRUCTS_H // Guarda de inclusão (impede erros de loop)
+/**
+ * Estávamos tendo problemas com as estruturas (structs) dos dois jogos pois a main
+ * precisava, em alguns casos, manipular estruturas parecidas. Além disso, como o jogo 
+ * 3D inclui o jogo 2D, aconteciam casos de repetir a mesma estrutura em duas partes distintas.
+ * Para unificar esse desenvolvimento, pesquisamos uma forma de resolver e escolhemos modularizar todas 
+ * as estruturas usadas nos dois games. Isso permitiu a separação e unificação quando necessário
+ */
+
+#ifndef GAME_STRUCTS_H
 #define GAME_STRUCTS_H
 
-#include <GL/freeglut.h> // Necessário para GLuint
-#include <vector>        // Necessário se você for declarar vetores aqui, se não, pode remover
+#include <GL/freeglut.h>
+#include <vector>
 #include <cmath>
 #include <vector>
 
@@ -10,16 +18,11 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-// =========================================================
-// 1. ESTRUTURAS GRÁFICAS (Renderização / VBOs)
-// =========================================================
 
-
-// Um vértice completo no formato: pos(3) + cor(4) + tex(2) + normal(3)
 struct vert {
-    GLfloat pos[3];    // x, y, z
-    GLfloat cor[4];    // r, g, b, a
-    GLfloat tex[2];    // s, t
+    GLfloat pos[3]; // x, y, z
+    GLfloat cor[4]; // r, g, b, a
+    GLfloat tex[2]; // s, t
     GLfloat normal[3]; // nx, ny, nz
 };
 
@@ -31,10 +34,6 @@ struct VBO_Info {
     GLuint vboID;
     int triCount;
 };
-
-// =========================================================
-// 2. ESTRUTURAS DE LÓGICA DO JOGO (3D)
-// =========================================================
 
 struct GameObject_3D {
     float x, y, z;
@@ -71,16 +70,6 @@ struct SpikeZone_3D {
     float r, g, b;
 };
 
-struct RiverZone_3D { // Supondo que exista, baseado no seu código anterior
-    float x, y, z;
-    float w, h, d;
-    // Adicione outras propriedades se necessário
-};
-
-// =========================================================
-// 3. ENUMS E ESTADOS
-// =========================================================
-
 enum GameAction {
     GAME_ACTION_CONTINUE,
     GAME_ACTION_EXIT_TO_MENU,
@@ -88,16 +77,6 @@ enum GameAction {
     GAME_ACTION_LEVEL_LOST
 };
 
-// =========================================================
-// 4.  ESTRUTURAS DE LÓGICA DO JOGO (2D)
-// =========================================================
-
-/**
- * Todos os elementos do jogo (correntes de vento, espinhos, jogador, etc) são
- * modularizados para garantir que sempre terão os mesmos comportamentos e sigam
- * uma estrutura padrão. Os valores passíveis de mudanças são variáveis
- * controladas pela lógica do game ou pela fase em questão
- */
 struct GameObject {
   float x, y, w, h;
   float r, g, b;
@@ -108,19 +87,18 @@ struct Platform {
   float x, y, w, h;
   float r, g, b;
   bool isHookable;
-  float frictionCoefficient;  // Coeficiente de atrito, responsável pela
-                              // aceleração ou desaceleração do personagem
+  float frictionCoefficient;
 };
 
 struct WindZone {
   float x, y, w, h;
-  float accelX, accelY;  // Aceleração que o vento aplica ao jogador
+  float accelX, accelY;
 };
 
 struct BreakableWall {
   float x, y, w, h;
   float r, g, b;
-  float strength;  // Resistência da parede
+  float strength;
   bool isBroken;
 };
 
@@ -129,10 +107,11 @@ struct SpikeZone {
   float r, g, b;
 };
 
-// =========================================================
-// 5. MATEMÁTICA E VETORES
-// =========================================================
-
+/**
+ * Buscamos uma estrutura pronta de desenho de vetores para facilitar os cálculos matemáticos.
+ * Isso funciona como uma classe de Java onde existem campos, construtores e funções definidas dentro 
+ * da struct
+ */
 struct Vector_3D {
     float x, y, z;
 
@@ -141,8 +120,6 @@ struct Vector_3D {
 
     // Construtor com valores
     Vector_3D(float _x, float _y, float _z) : x(_x), y(_y), z(_z) {}
-
-    // --- Operadores para facilitar a Física ---
 
     // Soma de vetores (v1 + v2)
     Vector_3D operator+(const Vector_3D& other) const {
@@ -174,4 +151,4 @@ struct Vector_3D {
     }
 };
 
-#endif // Fim do GAME_STRUCTS_H
+#endif

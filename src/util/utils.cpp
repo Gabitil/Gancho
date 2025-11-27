@@ -451,28 +451,8 @@ void drawTextCentered(float cx, float y, const char* text, void* font) {
   drawText(cx - textWidth / 2.0f, y, text, font);
 }
 
-void drawCubeLegacy(float x, float y, float z, float w, float h, float d, float r, float g, float b, float alpha) {
-    glPushMatrix();
-    glTranslatef(x, y, z);
-    glScalef(w, h, d);
-
-    if (alpha < 0.99f) {
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    }
-    
-    // Cor e transparência
-    glColor4f(r, g, b, alpha);
-    
-    // Desenha o cubo padrão do FreeGLUT
-    glutSolidCube(1.0f);
-
-    if (alpha < 0.99f) glDisable(GL_BLEND);
-    glPopMatrix();
-}
-
 /**
- * Função auxiliar para desenhar texto em 3D (para os vetores)
+ * Função auxiliar para desenhar texto em 3D
  */
 void drawText3D(float x, float y, float z, const char* text) {
     glRasterPos3f(x, y, z);
@@ -492,11 +472,7 @@ void drawText3D(float x, float y, float z, const char* text) {
  * @param b Cor B (0.0 a 1.0).
  * @param label Nome do vetor para exibição.
  */
-/**
- * Desenha um vetor 3D (Linha + Cone).
- */
 void drawVector_3D(Vector_3D start, Vector_3D vector, float scale, float r, float g, float b, const char* label) {
-    // 1. Tamanho Visual
     float vx = vector.x * scale;
     float vy = vector.y * scale;
     float vz = vector.z * scale;
@@ -504,36 +480,30 @@ void drawVector_3D(Vector_3D start, Vector_3D vector, float scale, float r, floa
 
     if (len < 0.1f) return; // Muito pequeno
 
-    // Ponto Final
     Vector_3D end = {start.x + vx, start.y + vy, start.z + vz};
 
     glDisable(GL_LIGHTING);
     glLineWidth(2.0f);
     glColor3f(r, g, b);
 
-    // 2. Linha
     glBegin(GL_LINES);
         glVertex3f(start.x, start.y, start.z);
         glVertex3f(end.x, end.y, end.z);
     glEnd();
 
-    // 3. Cone (Ponta)
     glPushMatrix();
         glTranslatef(end.x, end.y, end.z);
 
-        // Rotação para apontar o cone na direção do vetor
         // O glutSolidCone aponta para +Z por padrão.
-        // Calculamos o ângulo horizontal (Yaw) e vertical (Pitch)
         float yaw = atan2(vx, vz) * 180.0f / M_PI;
         float pitch = -atan2(vy, sqrt(vx*vx + vz*vz)) * 180.0f / M_PI; // Negativo pois Y é up
 
-        glRotatef(yaw, 0, 1, 0);   // Gira no horizonte
+        glRotatef(yaw, 0, 1, 0); 
         glRotatef(pitch, 1, 0, 0); // Inclina para cima/baixo
 
-        glutSolidCone(0.2f, 0.5f, 8, 2); // Base, Altura, Fatias, Pilhas
+        glutSolidCone(0.2f, 0.5f, 8, 2);
     glPopMatrix();
 
-    // 4. Texto
     if (label) {
         glDisable(GL_DEPTH_TEST); // Texto sempre visível
         glColor3f(1, 1, 1);
@@ -564,17 +534,13 @@ bool isPointInsideBox(float px, float py, float pz,
             pz >= z && pz <= z + d);
 }
 
-// Interseção de segmento de reta com caixa (Simplificada para o Gancho)
-// Retorna true se bateu e preenche hitX, hitY, hitZ
+/**
+ * Interseção de segmento de reta com caixa (Simplificada para o Gancho) 
+ * Retorna true se bateu e preenche hitX, hitY, hitZ (usamos para debug)
+ */
 bool lineBoxIntersection(float x1, float y1, float z1, 
                          float x2, float y2, float z2, 
                          Platform_3D p, float& hX, float& hY, float& hZ) {
-    // Para simplificar: verificamos se o ponto final (x2, y2, z2) entrou na caixa
-    // Um raycast completo seria mais custoso, mas para jogos rápidos isso funciona bem
-    // se o projétil não for rápido demais a ponto de atravessar em 1 frame.
-    
-    // Passo intermédio: verificar se o segmento cruza a caixa
-    // Vamos usar uma aproximação: se o ponto final está dentro, colidiu.
     if (isPointInsideBox(x2, y2, z2, p.x, p.y, p.z, p.w, p.h, p.d)) {
         hX = x2; hY = y2; hZ = z2;
         return true;

@@ -1,24 +1,31 @@
 /**
  * Para a segunda entrega do trabalho, optamos por fazer uma lógica separada para o jogo 3D e controlar os estados do jogo
- * e as atualizações pela main. Isso irá facilitar a manutenção e evitar retrabalho de refatoração nas funções já criadas para
- * o jogo 2D. Algumas funções tiveram de ser renomeadas para fins de visualização e organização.
+ * e as atualizações pela "main.cpp". Isso irá facilitar a manutenção e evitar retrabalho de refatoração nas funções já criadas para
+ * o jogo 2D. 
+ * As funções foram nomeadas para fins de visualização e organização e todas os nomes pertinentes ao 
+ * 3D possuem o sufixo "_3D" ao final. Tentamos manter o máximo possível de igualdade entre as lógicas da física e mecânica do jogo.
+ * Todas as funções de callback feitas pela main tiveram que ser incrementadas de uma lógica de máquina de estados para verificação
+ * de se está no modo 2D ou 3D e, além disso, tratamentos tiveram de ser feitos devido á diferença entre montagem de cenas no modo 2D
+ * e no modo 3D (questões de perspectiva, iluminação, profundidade, matrizes de projeção, ponteiro do mouse etc).
+ * Todos os headers tiveram de ser refeitos pois tivemos muitos problemas com incompatibilidade de ordem das bibliotecas, excepcionalmente 
+ * a GLEW e a FreeGlut
  */
 
-// 1. Tipos fundamentais (Crucial para GLEW)
+// Tipos fundamentais que são cruciais para o uso da GLEW
 #include <cstddef>
 #include <cstdint>
 
-// 2. GLEW (Crucial vir antes de freeglut)
+// GLEW - Deve estar antes do FreeGlut
 #include <GL/glew.h>
 
-// 3. FreeGLUT
+// FreeGLUT
 #include <GL/freeglut.h>
 
-// 4. Bibliotecas Padrão
+// Bibliotecas Padrão
 #include <stdio.h>
 #include <string>
 
-// 5. Headers do Projeto
+// Headers ".h"
 #include "game_3D.h"
 #include "game.h"
 #include "menu.h"
@@ -33,6 +40,7 @@ const int INITIAL_WIN_WIDTH = 800;
 const int INITIAL_WIN_HEIGHT = 600;
 const int NUM_LEVELS = 3;
 
+// Controle de estados amplificado para suportar o modo 2D e 3D
 enum GameState
 {
   STATE_MODE_SELECT,
@@ -97,7 +105,7 @@ int activeLevel_3D = 1;
 
 // ------------------------------------------------------------------------------------------------------------------
 
-// Callbacks
+// Callbacks padrões da própria main
 void display();
 void reshape(int w, int h);
 void mouseMotion(int x, int y);
@@ -125,7 +133,6 @@ extern void gameKeyUp(unsigned char key, int x, int y);
 extern void gameSpecialDown(int key, int x, int y);
 extern void gameSpecialUp(int key, int x, int y);
 
-// Funções 3D (nomes _3D)
 void renderInstructions_3D();
 void renderLevelSelect_3D();
 void drawGameHUD_3D();
@@ -144,37 +151,6 @@ extern void loadGameTextures_3D();
 // ------------------------------------------------------------------------------------------------------------------
 
 /**
- * Reseta as configurações do OpenGL de 3D para 2D.
- * Deve ser chamada sempre que sair do jogo 3D (Vitória, Derrota ou Quit).
- */
-void exitGame3DMode()
-{
-  // 1. Desliga sistemas 3D
-  glDisable(GL_LIGHTING);       // OBRIGATÓRIO: Desliga cálculo de luz
-  glDisable(GL_LIGHT0);         // OBRIGATÓRIO: Desliga a luz específica
-  glDisable(GL_DEPTH_TEST);     // OBRIGATÓRIO: Menu é 2D, não precisa de profundidade
-  glDisable(GL_COLOR_MATERIAL); // Desliga materiais
-  glDisable(GL_NORMALIZE);      // Desliga normalização de vetores
-
-  // 2. Reseta a Matriz de Projeção para evitar distorções
-  glMatrixMode(GL_PROJECTION);
-  glLoadIdentity();
-  glMatrixMode(GL_MODELVIEW);
-  glLoadIdentity();
-
-  // 3. Reseta a cor para Branco Puro (CRUCIAL para o menu não ficar escuro)
-  // Se isso não for feito, o menu será desenhado com a última cor usada no 3D (ex: vermelho de dano)
-  glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-
-  // 4. Mostra o Mouse
-  glutSetCursor(GLUT_CURSOR_LEFT_ARROW);
-
-  // 5. Restaura callbacks
-  glutPassiveMotionFunc(mouseMotion);
-  glutMotionFunc(mouseMotion);
-}
-
-/**
  * Carrega todas as texturas do jogo 2D.
  */
 void loadGameTextures()
@@ -186,7 +162,7 @@ void loadGameTextures()
   texPlayerJump = loadTexture("assets/images/player/player_jump.png");
   texPlayerLose = loadTexture("assets/images/player/player_lose.png");
   texDoor = loadTexture("assets/images/global/door.png");
-
+  
   std::string levelPath;
   switch (CURRENT_LEVEL)
   {
@@ -281,20 +257,53 @@ void drawGameHUD_2D()
 
 // ----------------------------------------------------------------------------------------------------
 
+/**
+ * Um problema que tivemos foi as questões de visualização que se alteram do modo 2D para o 3D. Portanto, 
+ * para encerrar questões de iluminação, perspectiva, profundidade e matrizes de projeção, fizemos essa 
+ * função que visa sair do modo 3D para não gerar inconsistência na visualização do 2D
+ */
+void exitGame3DMode()
+{
+  // Desliga sistemas 3D
+  glDisable(GL_LIGHTING);       // Desliga cálculo de luz
+  glDisable(GL_LIGHT0);         // Desliga a luz específica
+  glDisable(GL_DEPTH_TEST);     // Desliza profundidade
+  glDisable(GL_COLOR_MATERIAL); // Desliga materiais
+  glDisable(GL_NORMALIZE);      // Desliga normalização de vetores
+
+  // Reseta a Matriz de Projeção para evitar distorções
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+
+  // Reseta a cor para Branco Puro
+  glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+
+  // Mostra o Mouse
+  glutSetCursor(GLUT_CURSOR_LEFT_ARROW);
+
+  // Restaura callbacks (parte importante devido ao modo FPS do mouse no jogo 3D)
+  glutPassiveMotionFunc(mouseMotion);
+  glutMotionFunc(mouseMotion);
+}
+
 void renderInstructions_3D()
 {
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Necessário o DEPTH para 3D
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // É necessário a profundidade para escrita e formação de cenas em 3D
 
   float winW = (float)glutGet(GLUT_WINDOW_WIDTH);
   float winH = (float)glutGet(GLUT_WINDOW_HEIGHT);
   drawTexturedRect(0, 0, winW, winH, texInstructionsBackground, false, false);
 
-  drawText(50, 80, "INSTRUCOES DO MUNDO 3D: ");
-  drawText(50, 120, "- Use 'W', 'A', 'S', 'D' para movimentacao no plano horizontal.");
-  drawText(50, 150, "- Use o mouse para controlar a camera.");
-  drawText(50, 180, "- O gancho (grappling hook) e lancado com o botao esquerdo do mouse.");
-  drawText(50, 210, "- Se prender a objetos o puxara na direcao, mas a fisica 3D e mais complexa!");
-  drawText(50, 240, "- O objetivo e encontrar a saida no espaco 3D.");
+  drawText(50, 120, "- Use 'W', 'A', 'S', 'D' para se mover no chao.");
+  drawText(50, 150, "- Use o MOUSE para olhar e mirar.");
+  drawText(50, 190, "- BOTAO ESQUERDO (SEGURAR): Carrega a forca do lancamento.");
+  drawText(50, 220, "- BOTAO ESQUERDO (SOLTAR): Dispara o gancho na mira.");
+  drawText(50, 250, "- ESPACO: Solta a corda se estiver pendurado.");
+  drawText(50, 300, "- A fisica 3D usa balanco e momento. Aproveite o impulso!");
+  drawText(50, 330, "- Algumas paredes podem ser quebradas com alta velocidade.");
+  drawText(50, 380, "- OBJETIVO: Encontre a porta para vencer.");
 
   drawButton(instrBackButton);
   glutSwapBuffers();
@@ -325,7 +334,8 @@ void drawGameHUD_3D()
 
 /**
  * Agora a função de display é uma máquina de estados mais complexa para controlar qual o
- * tipo de jogo que está sendo jogado
+ * tipo de jogo que está sendo jogado. É a mesma coisa da função display para 2D, mas agora com 
+ * mais verificações de estado
  */
 void display()
 {
@@ -337,11 +347,9 @@ void display()
     renderMenu(modeSelectButtons, NUM_MODE_SELECT_BUTTONS);
     break;
   case STATE_MENU_2D:
-    // Renderiza o sub-menu 2D de 3 botões
     renderMenu(menu2DButtons, NUM_SUB_MENU_BUTTONS);
     break;
   case STATE_MENU_3D:
-    // Renderiza o sub-menu 3D de 3 botões
     renderMenu(menu3DButtons, NUM_SUB_MENU_BUTTONS);
     break;
   case STATE_INSTRUCTIONS_2D:
@@ -370,7 +378,7 @@ void display()
 }
 
 /**
- * Atualiza a posição de TODOS os botões
+ * Atualiza a posição de TODOS os botões. Função aproveitada do modo 2D e usada também para o 3D
  */
 void updateAllButtonPositions(int w, int h)
 {
@@ -421,7 +429,11 @@ void updateAllButtonPositions(int w, int h)
   gameBackButton.y = margin;
 }
 
-// Em main.cpp (VERSÃO CORRIGIDA)
+/**
+ * Por questões de perspectiva, profundidade, matrizes e etc, o reshape não pôde ser aproveitado
+ * entre as versões 2D e 3D. Portanto, também é uma máquina de estados e que chama o reshape corretamente
+ * de acordo com o tipo de jogo
+ */
 void reshape(int w, int h)
 {
   if (h == 0)
@@ -432,12 +444,12 @@ void reshape(int w, int h)
     gameReshape(w, h); // Chama o reshape 2D
   }
   else if (currentState == STATE_GAME_3D)
-  {                       // NOVO 'ELSE IF'
+  {                      
     gameReshape_3D(w, h); // Chama o reshape 3D
   }
   else
   {
-    // Somente os MENUS usam esta projeção 2D
+    // Somente os MENUS usam esta projeção 2D. Isso pôde ser igual para ambos pois o menu sempre será 2D
     glViewport(0, 0, w, h);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
@@ -463,18 +475,22 @@ void mouseMotion(int x, int y)
   }
   else if (currentState == STATE_GAME_3D)
   {
-    // 1. Verifica o Hover do botão (Sempre)
+    /**
+     * As funções de hover do 3D tiveram de ser passadas para antes do mouseMotion pois
+     * haviam casos, no meio do jogo, em que o hover não funcionava corretamente. Além disso, 
+     * parte do controle do mouse foi passado para a main pois é ela que desenha o botão de voltar 
+     * enquanto está no jogo. Dessa forma, esse controle do mouseMotion passa pela main antes de 
+     * transferir a função para o jogo 3D.
+     */
     gameBackButton.hovered =
         (x >= gameBackButton.x && x <= gameBackButton.x + gameBackButton.w &&
          y >= gameBackButton.y && y <= gameBackButton.y + gameBackButton.h);
 
-    // 2. Repassa o movimento para a câmera 3D
-    // A função gameMouseMotion_3D já sabe ignorar se isMouseFree_3D for true
     gameMouseMotion_3D(x, y);
   }
   else
   {
-    // Lógica de hover para todos os menus
+    // Lógica de hover para todos os menus (padrão)
     if (currentState == STATE_MODE_SELECT)
     {
       for (int i = 0; i < NUM_MODE_SELECT_BUTTONS; i++)
@@ -537,7 +553,9 @@ void mouseMotion(int x, int y)
 }
 
 /**
- * Mouse click adaptado para a nova máquina de estados
+ * Assim como na função de mouseMotion, é o menu que controla o botão de voltar contido dentro do jogo. Portanto, 
+ * nesse caso, é necessário um tratamento do clique do mouse pela main antes de transferir a lógica para as callbacks dos
+ * jogos. A maioria da lógica foi duplicada da versão 2D
  */
 void mouseClick(int button, int state, int x, int y)
 {
@@ -558,20 +576,24 @@ void mouseClick(int button, int state, int x, int y)
     }
     else if (currentState == STATE_GAME_3D)
     {
-      // Recalcula colisão explicitamente para garantir
       bool clickedBack = (x >= gameBackButton.x && x <= gameBackButton.x + gameBackButton.w &&
                           y >= gameBackButton.y && y <= gameBackButton.y + gameBackButton.h);
 
-      // Se o mouse está livre (M) E clicou no botão
+      /**
+       * Apenas se o mouse estiver livre significa que clicou no botão. Apesar de no jogo o mouse ser reatualizado
+       * o tempo inteiro para estar no centro da tela, adicionamos essa verificação para garantir consistência. Para isso, 
+       * foi necessário usar uma variável externa "isMouseFree_3D" 
+       */ 
+      
       if (isMouseFree_3D && clickedBack && state == GLUT_DOWN)
       {
-        exitGame3DMode(); // Limpa o estado 3D
+        exitGame3DMode(); // Sai do modo de jogo 3D para evitar inconsistências de montagem de tela
         currentState = STATE_LEVEL_SELECT_3D;
         reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
       }
       else
       {
-        // Caso contrário, manda o clique para a mecânica de tiro
+        // Caso contrário, manda o clique para a mecânica de tiro pois significa que o mouse estava em modo FPS
         gameMouseClick_3D(button, state);
       }
     }
@@ -591,7 +613,7 @@ void mouseClick(int button, int state, int x, int y)
         case 2:
           currentState = STATE_MENU_3D;
           break;
-        case 3: // "Sair"
+        case 3: // Sair
           glutLeaveMainLoop();
           break;
         }
@@ -672,9 +694,6 @@ void mouseClick(int button, int state, int x, int y)
             gameStartLevel_3D(activeLevel_3D);
             loadGameTextures_3D();
 
-            // glutMotionFunc(gameMouseMotion_3D);
-            // glutPassiveMotionFunc(gameMouseMotion_3D);
-
             reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
 
             glutTimerFunc(16, timer, 0);
@@ -711,13 +730,17 @@ void keyboardDown(unsigned char key, int x, int y)
       glutPostRedisplay();
     }
   }
+  /**
+   * Para retornar ao menu no modo 3D a lógica não pôde se manter a mesma pois é necessário 
+   * retransferir as funções das callbacks para a main devido às diferenças.
+   */
   else if (currentState == STATE_GAME_3D)
   {
     GameAction action = gameKeyDown_3D(key, x, y);
     if (action == GAME_ACTION_EXIT_TO_MENU)
     {
 
-      exitGame3DMode();
+      exitGame3DMode(); // Sai do modo de jogo 3D para evitar inconsistências de montagem de tela
 
       currentState = STATE_LEVEL_SELECT_3D;
 
@@ -778,9 +801,8 @@ void timer(int value)
   }
 
   GameAction action;
-  GameState originalState = currentState; // Guarda o estado atual (2D ou 3D)
+  GameState originalState = currentState; 
 
-  // Chama a função de update correta
   if (currentState == STATE_GAME_2D)
   {
     action = gameUpdate();
@@ -790,7 +812,6 @@ void timer(int value)
     action = gameUpdate_3D();
   }
 
-  // Lida com a ação retornada
   if (action == GAME_ACTION_LEVEL_WON)
   {
     if (originalState == STATE_GAME_2D)
@@ -801,8 +822,7 @@ void timer(int value)
     }
     else // 3D
     {
-      // --- ALTERAÇÃO AQUI: Limpa estado 3D antes de voltar ao menu ---
-      exitGame3DMode();
+      exitGame3DMode(); // Sai do modo de jogo 3D para evitar inconsistências de montagem de tela
 
       if (activeLevel_3D == maxLevelUnlocked_3D && maxLevelUnlocked_3D < NUM_LEVELS)
         maxLevelUnlocked_3D++;
@@ -813,10 +833,9 @@ void timer(int value)
   }
   else if (action == GAME_ACTION_LEVEL_LOST)
   {
-    // --- ALTERAÇÃO AQUI: Limpa estado 3D antes de voltar ao menu ---
     if (originalState == STATE_GAME_3D)
     {
-      exitGame3DMode();
+      exitGame3DMode(); // Sai do modo de jogo 3D para evitar inconsistências de montagem de tela
     }
 
     // Volta para o menu de seleção de nível correto

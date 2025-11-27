@@ -11,9 +11,6 @@
 #include "GL/stb_image.h"
 #include <cmath>
 
-// Headers do projeto (opcionais aqui, dependendo se utils.h precisa deles)
-// Se utils.h apenas declara funções utilitárias, evite incluir game.h aqui para reduzir acoplamento.
-// Mas se for necessário:
 #include "game.h" 
 #include "game_structs.h" 
 // #include "game_3D.h"

@@ -1,17 +1,17 @@
 #ifndef GAME_3D_H
 #define GAME_3D_H
 
-// 1. Tipos Padrão
+// Tipos Padrão
 #include <cstddef>
 #include <cstdint>
 
-// 2. GLEW (Sempre antes de FreeGLUT/GL.h)
+// GLEW
 #include <GL/glew.h>
 
-// 3. FreeGLUT
+// FreeGLUT
 #include <GL/freeglut.h>
 
-// 4. Headers do Projeto
+// Headers ".h"
 #include "game.h"
 #include "mesh_utils.h"
 #include "utils.h"
