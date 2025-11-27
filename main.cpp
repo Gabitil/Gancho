@@ -150,19 +150,26 @@ extern void loadGameTextures_3D();
 void exitGame3DMode()
 {
   // 1. Desliga sistemas 3D
-  glDisable(GL_LIGHTING);
-  glDisable(GL_DEPTH_TEST);
-  glDisable(GL_COLOR_MATERIAL);
+  glDisable(GL_LIGHTING);       // OBRIGATÓRIO: Desliga cálculo de luz
+  glDisable(GL_LIGHT0);         // OBRIGATÓRIO: Desliga a luz específica
+  glDisable(GL_DEPTH_TEST);     // OBRIGATÓRIO: Menu é 2D, não precisa de profundidade
+  glDisable(GL_COLOR_MATERIAL); // Desliga materiais
+  glDisable(GL_NORMALIZE);      // Desliga normalização de vetores
 
-  // 2. Reseta a cor para Branco Puro
+  // 2. Reseta a Matriz de Projeção para evitar distorções
+  glMatrixMode(GL_PROJECTION);
+  glLoadIdentity();
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+
+  // 3. Reseta a cor para Branco Puro (CRUCIAL para o menu não ficar escuro)
+  // Se isso não for feito, o menu será desenhado com a última cor usada no 3D (ex: vermelho de dano)
   glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
-  // 3. Mostra o Mouse
+  // 4. Mostra o Mouse
   glutSetCursor(GLUT_CURSOR_LEFT_ARROW);
 
-  // --- CORREÇÃO CRUCIAL (RESTORE CALLBACKS) ---
-  // O jogo 3D tinha "sequestrado" o mouse. Agora devolvemos o controle
-  // para a função 'mouseMotion' da main.cpp, que sabe lidar com menus.
+  // 5. Restaura callbacks
   glutPassiveMotionFunc(mouseMotion);
   glutMotionFunc(mouseMotion);
 }
@@ -709,6 +716,9 @@ void keyboardDown(unsigned char key, int x, int y)
     GameAction action = gameKeyDown_3D(key, x, y);
     if (action == GAME_ACTION_EXIT_TO_MENU)
     {
+
+      exitGame3DMode();
+
       currentState = STATE_LEVEL_SELECT_3D;
 
       glutMotionFunc(mouseMotion);

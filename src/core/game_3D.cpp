@@ -452,12 +452,12 @@ void drawPhysicsDebugHUD_3D()
     // 5. Tensão (Se no gancho)
     if (isHooked_3D)
     {
-        // A força de tração é currentPullForce * massa (na sua lógica antiga multiplicava por massa no display)
-        // Se currentPullForce_3D já for força (Newton), tire a multiplicação.
-        // Assumindo que no 3D definimos currentPullForce como aceleração ou força pura.
-        // No 2D você fazia: currentPullForce * playerMass. Vamos manter a consistência.
-        float tensionN = currentChargeForce_3D; // No update 3D, currentPullForce é derivado da carga
-        sprintf(buffer, "T: %.2f N", tensionN);
+        // Calcula a magnitude real do vetor de tensão atual (Pitágoras 3D)
+        float tMag = sqrt(forceTensionX_3D * forceTensionX_3D +
+                          forceTensionY_3D * forceTensionY_3D +
+                          forceTensionZ_3D * forceTensionZ_3D);
+
+        sprintf(buffer, "T: %.2f N", tMag);
         infoLines.push_back(buffer);
     }
 
@@ -751,13 +751,24 @@ void drawDebugVectors()
     }
 
     // ---------------------------------------------------
-    // D. TENSÃO (T) - Amarelo
+    // D. TENSÃO (T) - Azul
     // Se estiver pendurado no gancho
     // ---------------------------------------------------
     if (isHooked_3D)
     {
+        // 1. Define a origem do vetor na MÃO/ARMA (Mesma altura usada no gameDisplay)
+        // O centro.y é o meio do corpo. A corda sai um pouco acima (+0.4h)
+        float ropeOriginY = center.y + (player_3D.h * 0.4f);
+        
+        Vector_3D ropeStartPos = {center.x, ropeOriginY, center.z};
+
+        // 2. Vetor de Força
         Vector_3D vecT = {forceTensionX_3D, forceTensionY_3D, forceTensionZ_3D};
-        drawVector_3D(center, vecT, scaleForce, 1.0f, 1.0f, 0.0f, "T");
+
+        // 3. Desenha o vetor SOBRE a corda
+        // O vetor vai começar na mão e seguir a linha da corda.
+        // O tamanho da seta azul representará a intensidade da força.
+        drawVector_3D(ropeStartPos, vecT, scaleForce, 0.2f, 0.2f, 1.0f, "T");
     }
 
     // ---------------------------------------------------
@@ -941,18 +952,33 @@ void gameStartLevel_3D(int level)
         return;
     }
 
-    // Recarregar munição baseada no nível carregado
-    shotsRemaining_3D = levelParameters_3D.maxShots;
+    // --- CORREÇÃO DO MOUSE E ESTADOS FINAIS ---
+    
+    // 1. Força o mouse a ficar preso (Resolvendo o problema de ter que apertar 'M')
+    isMouseFree_3D = false; 
 
-    // Define plataforma inicial (segurança)
+    // 2. Configura cursor
+    glutSetCursor(GLUT_CURSOR_NONE);
+    
+    // 3. Setup de Tela e Ponteiro
+    gameReshape_3D(w, h);
+    
+    // 4. Força o ponteiro para o centro IMEDIATAMENTE
+    glutWarpPointer(w / 2, h / 2);
+    
+    // 5. Reinicia a flag de "primeiro movimento" para evitar solavancos
+    mouseInitialized_3D = false;
+
+    // Recarregar munição e definir plataforma inicial
+    shotsRemaining_3D = levelParameters_3D.maxShots;
     if (!platforms_3D.empty())
         collidingPlatform_3D = &platforms_3D[0];
     else
         collidingPlatform_3D = NULL;
 
     // Gera a geometria
-    createWorldDisplayLists(); // Grade do chão
-    createLevelVBOs();         // VBOs das plataformas, paredes e espinhos
+    createWorldDisplayLists(); 
+    createLevelVBOs();
 }
 
 GameAction gameUpdate_3D()
@@ -1394,6 +1420,8 @@ GameAction gameUpdate_3D()
                 wall.isBroken = true;
                 player_3D.velocityX *= 0.6f; // Perde velocidade ao quebrar
                 // Não paramos o player, deixamos ele atravessar (satisfatório)
+
+                createLevelVBOs();
             }
             else
             {
@@ -1665,6 +1693,30 @@ void gameDisplay_3D()
         }
         glEnd();
 
+        // --- NOVO: MOSTRAR TENSÃO NA PRÓPRIA CORDA ---
+        if (isHooked_3D)
+        {
+            // 1. Calcula o Ponto Médio da corda
+            float midX = (cx + hookPointX_3D) / 2.0f;
+            float midY = (cyShot + hookPointY_3D) / 2.0f;
+            float midZ = (cz + hookPointZ_3D) / 2.0f;
+
+            // 2. Pega o valor da Tensão (Magnitude do vetor)
+            float tMag = sqrt(forceTensionX_3D * forceTensionX_3D +
+                              forceTensionY_3D * forceTensionY_3D +
+                              forceTensionZ_3D * forceTensionZ_3D);
+
+            // 3. Formata e Desenha
+            char tensionStr[32];
+            sprintf(tensionStr, "%.1f N", tMag);
+
+            // Usa a mesma cor Azul do vetor (0.2, 0.2, 1.0)
+            glColor3f(0.2f, 0.2f, 1.0f);
+
+            // Desenha um pouco acima da linha (+1.0f no Y) para não sobrepor
+            drawText3D(midX, midY + 1.0f, midZ, tensionStr);
+        }
+
         // Desenha a ponta (esfera) se estiver voando
         if (isHookFiring_3D)
         {
@@ -1677,8 +1729,6 @@ void gameDisplay_3D()
 
         glEnable(GL_LIGHTING); // Restaura
     }
-
-    // ... (Código anterior de desenho das plataformas/VBOs) ...
 
     // --- VISUALIZAÇÃO DOS ATRITOS (DEBUG) ---
     // Desabilita luz e textura para o texto ficar nítido e com cor sólida
@@ -1704,13 +1754,32 @@ void gameDisplay_3D()
         drawText3D(cx, cy, cz, frictionText);
     }
 
+    // --- VISUALIZAÇÃO DA RESISTÊNCIA (PAREDES) ---
+    // Cor Laranja para diferenciar do atrito
+    glColor3f(1.0f, 0.5f, 0.0f);
+
+    char strText[32];
+    for (const auto &w : breakableWalls_3D)
+    {
+        if (w.isBroken)
+            continue;
+
+        // Calcula o centro do topo da parede
+        float cx = w.x + w.w / 2.0f;
+        float cy = w.y + w.h + 0.5f;
+        float cz = w.z + w.d / 2.0f;
+
+        // Formata: "Str: 400"
+        sprintf(strText, "Str: %.0f", w.strength);
+        drawText3D(cx, cy, cz, strText);
+    }
+
     // Reabilita iluminação para o resto da cena (se necessário)
     glEnable(GL_LIGHTING);
 
     // ... (Continua para drawDebugVectors e HUD) ...
 
     // --- 4. VETORES FÍSICOS (Debug) ---
-    // AQUI ESTAVA FALTANDO A CHAMADA PRINCIPAL!
     drawDebugVectors();
 
     // --- 5. HUD (Overlay 2D) ---
@@ -1839,12 +1908,15 @@ void gameMouseMotion_3D(int x, int y)
 
     if (isMouseFree_3D)
         return;
+
     int w = glutGet(GLUT_WINDOW_WIDTH);
     int h = glutGet(GLUT_WINDOW_HEIGHT);
     int cx = w / 2, cy = h / 2;
 
     if (!mouseInitialized_3D)
     {
+        // CORREÇÃO: Mesmo sendo o primeiro frame, garantimos que ele está no centro
+        // e marcamos como inicializado.
         mouseInitialized_3D = true;
         glutWarpPointer(cx, cy);
         return;
