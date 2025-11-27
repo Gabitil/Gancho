@@ -92,7 +92,7 @@ ifeq ($(OS),Windows_NT)
 	LDFLAGS += -Llib
 
     # SDL2 + SDL2_mixer (esperando os .a/.lib em lib/)
-    LIBS = -lSDL2_mixer -lSDL2 -lSDL2main \
+    LIBS = -lSDL2_mixer -lSDL2\
            -lglew32 -lfreeglut -lglu32 -lopengl32 -lgdi32 -lwinmm
 else
     EXEC_NAME = jogo
@@ -133,5 +133,10 @@ endif
 limpar:
 	$(call RM,$(OBJ_DIR))
 	@echo Limpeza concluída.
+ifeq ($(OS),Windows_NT)
+	if exist $(BIN_DIR)\$(EXEC_NAME) del /Q $(BIN_DIR)\$(EXEC_NAME)
+else
+	rm -f $(BIN_DIR)/$(EXEC_NAME)
+endif
 
 .PHONY: all compilar executar limpar run
