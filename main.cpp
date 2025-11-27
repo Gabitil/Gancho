@@ -23,6 +23,7 @@
 #include "game.h"
 #include "menu.h"
 #include "utils.h"
+// #include "audio.h"
 
 // ------------------------------------------------------------------------------------------------------------------
 
@@ -869,6 +870,17 @@ void init()
 
   // Carrega as texturas do jogo 2D (pré-carregamento)
   loadGameTextures();
+
+  // // Inicializa o áudio
+  // if(!Audio::init()) {
+  //     fprintf(stderr, "Falha ao inicializar o sistema de audio.\n");
+  // }
+
+  // Audio::loadMusic("menu_theme", "assets/audio/safe_room_theme.ogg");
+
+
+  // Audio::playMusic("menu_theme", -1); // Loop da música de fundo
+
 }
 
 int main(int argc, char **argv)
