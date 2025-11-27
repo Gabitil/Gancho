@@ -30,7 +30,7 @@
 #include "game.h"
 #include "menu.h"
 #include "utils.h"
-// #include "audio.h"
+#include "audio.h"
 
 // ------------------------------------------------------------------------------------------------------------------
 
@@ -298,12 +298,14 @@ void renderInstructions_3D()
 
   drawText(50, 120, "- Use 'W', 'A', 'S', 'D' para se mover no chao.");
   drawText(50, 150, "- Use o MOUSE para olhar e mirar.");
-  drawText(50, 190, "- BOTAO ESQUERDO (SEGURAR): Carrega a forca do lancamento.");
-  drawText(50, 220, "- BOTAO ESQUERDO (SOLTAR): Dispara o gancho na mira.");
+  drawText(50, 190, "- BOTAO ESQUERDO DO MOUSE (SEGURAR): Carrega a forca do lancamento.");
+  drawText(50, 220, "- BOTAO ESQUERDO DO MOUSE (SOLTAR): Dispara o gancho na mira.");
   drawText(50, 250, "- ESPACO: Solta a corda se estiver pendurado.");
-  drawText(50, 300, "- A fisica 3D usa balanco e momento. Aproveite o impulso!");
+  drawText(50, 300, "- A fisica 3D usa balanco e movimento. Aproveite o impulso!");
   drawText(50, 330, "- Algumas paredes podem ser quebradas com alta velocidade.");
   drawText(50, 380, "- OBJETIVO: Encontre a porta para vencer.");
+  drawText(50, 430, "- Para sair do jogo, pressione 'Q' ou 'ESC'.");
+  drawText(50, 460, "- Para soltar/prender o mouse, pressione 'M' ou 'ALT'.");
 
   drawButton(instrBackButton);
   glutSwapBuffers();
@@ -900,15 +902,15 @@ void init()
   // Carrega as texturas do jogo 2D (pré-carregamento)
   loadGameTextures();
 
-  // // Inicializa o áudio
-  // if(!Audio::init()) {
-  //     fprintf(stderr, "Falha ao inicializar o sistema de audio.\n");
-  // }
+  // Inicializa o áudio
+  if(!Audio::init()) {
+      fprintf(stderr, "Falha ao inicializar o sistema de audio.\n");
+  }
 
-  // Audio::loadMusic("menu_theme", "assets/audio/safe_room_theme.ogg");
+  Audio::loadMusic("menu_theme", "assets/audio/safe_room_theme.ogg");
 
 
-  // Audio::playMusic("menu_theme", -1); // Loop da música de fundo
+  Audio::playMusic("menu_theme", -1); // Loop da música de fundo
 
 }
 
