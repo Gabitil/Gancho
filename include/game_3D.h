@@ -41,4 +41,6 @@ void gameSpecialDown_3D(int key, int x, int y);
 void gameSpecialUp_3D(int key, int x, int y);
 void loadGameTextures_3D();
 
+extern bool isMouseFree_3D;
+
 #endif

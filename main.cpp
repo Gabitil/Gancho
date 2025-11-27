@@ -146,23 +146,24 @@ extern void loadGameTextures_3D();
  * Reseta as configurações do OpenGL de 3D para 2D.
  * Deve ser chamada sempre que sair do jogo 3D (Vitória, Derrota ou Quit).
  */
-void exitGame3DMode() {
-    // 1. Desliga sistemas 3D
-    glDisable(GL_LIGHTING);
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_COLOR_MATERIAL);
+void exitGame3DMode()
+{
+  // 1. Desliga sistemas 3D
+  glDisable(GL_LIGHTING);
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_COLOR_MATERIAL);
 
-    // 2. Reseta a cor para Branco Puro
-    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+  // 2. Reseta a cor para Branco Puro
+  glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
-    // 3. Mostra o Mouse
-    glutSetCursor(GLUT_CURSOR_LEFT_ARROW);
+  // 3. Mostra o Mouse
+  glutSetCursor(GLUT_CURSOR_LEFT_ARROW);
 
-    // --- CORREÇÃO CRUCIAL (RESTORE CALLBACKS) ---
-    // O jogo 3D tinha "sequestrado" o mouse. Agora devolvemos o controle
-    // para a função 'mouseMotion' da main.cpp, que sabe lidar com menus.
-    glutPassiveMotionFunc(mouseMotion);
-    glutMotionFunc(mouseMotion);
+  // --- CORREÇÃO CRUCIAL (RESTORE CALLBACKS) ---
+  // O jogo 3D tinha "sequestrado" o mouse. Agora devolvemos o controle
+  // para a função 'mouseMotion' da main.cpp, que sabe lidar com menus.
+  glutPassiveMotionFunc(mouseMotion);
+  glutMotionFunc(mouseMotion);
 }
 
 /**
@@ -447,17 +448,21 @@ void mouseMotion(int x, int y)
 {
   if (currentState == STATE_GAME_2D)
   {
-    gameMouseMotion(x, y);
     gameBackButton.hovered =
         (x >= gameBackButton.x && x <= gameBackButton.x + gameBackButton.w &&
          y >= gameBackButton.y && y <= gameBackButton.y + gameBackButton.h);
+    gameMouseMotion(x, y);
   }
   else if (currentState == STATE_GAME_3D)
   {
-    gameMouseMotion_3D(x, y);
+    // 1. Verifica o Hover do botão (Sempre)
     gameBackButton.hovered =
         (x >= gameBackButton.x && x <= gameBackButton.x + gameBackButton.w &&
          y >= gameBackButton.y && y <= gameBackButton.y + gameBackButton.h);
+
+    // 2. Repassa o movimento para a câmera 3D
+    // A função gameMouseMotion_3D já sabe ignorar se isMouseFree_3D for true
+    gameMouseMotion_3D(x, y);
   }
   else
   {
@@ -545,13 +550,20 @@ void mouseClick(int button, int state, int x, int y)
     }
     else if (currentState == STATE_GAME_3D)
     {
-      if (state == GLUT_DOWN && gameBackButton.hovered)
+      // Recalcula colisão explicitamente para garantir
+      bool clickedBack = (x >= gameBackButton.x && x <= gameBackButton.x + gameBackButton.w &&
+                          y >= gameBackButton.y && y <= gameBackButton.y + gameBackButton.h);
+
+      // Se o mouse está livre (M) E clicou no botão
+      if (isMouseFree_3D && clickedBack && state == GLUT_DOWN)
       {
+        exitGame3DMode(); // Limpa o estado 3D
         currentState = STATE_LEVEL_SELECT_3D;
         reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
       }
       else
       {
+        // Caso contrário, manda o clique para a mecânica de tiro
         gameMouseClick_3D(button, state);
       }
     }
@@ -652,8 +664,8 @@ void mouseClick(int button, int state, int x, int y)
             gameStartLevel_3D(activeLevel_3D);
             loadGameTextures_3D();
 
-            glutMotionFunc(gameMouseMotion_3D);
-            glutPassiveMotionFunc(gameMouseMotion_3D);
+            // glutMotionFunc(gameMouseMotion_3D);
+            // glutPassiveMotionFunc(gameMouseMotion_3D);
 
             reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
 
@@ -791,8 +803,9 @@ void timer(int value)
   else if (action == GAME_ACTION_LEVEL_LOST)
   {
     // --- ALTERAÇÃO AQUI: Limpa estado 3D antes de voltar ao menu ---
-    if (originalState == STATE_GAME_3D) {
-        exitGame3DMode();
+    if (originalState == STATE_GAME_3D)
+    {
+      exitGame3DMode();
     }
 
     // Volta para o menu de seleção de nível correto

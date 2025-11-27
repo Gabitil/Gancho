@@ -69,6 +69,7 @@ struct LevelParameters_3D
     float maxPullStrengthPhysics;
     float vectorVisualScale;
     int maxShots;
+    float maxHookLength;
 };
 
 LevelParameters_3D levelParameters_3D;
@@ -125,6 +126,9 @@ float cameraDistance = 30.0f; // Distância da câmera ao jogador
 GLuint floorListID = 0;
 const float WORLD_SIZE = 100.0f; // Tamanho visual da grade
 const float FLOOR_Y = 0.0f;
+
+int lastMouseX_3D = 0;
+int lastMouseY_3D = 0;
 
 // ==================================================================================
 // ## 4. ESTADO DO GANCHO E SISTEMA DE CARREGAMENTO (CHARGE)
@@ -569,27 +573,25 @@ void drawChargeBar(int w, int h)
         return;
 
     float barCX = w / 2.0f;
-    float barCY = h - 60.0f;
+    float barCY = h - 100.0f;
     float barW = 200.0f;
-    float barH = 15.0f;
+    float barH = 20.0f;
 
-    // Fundo Cinza
-    drawRect(barCX - barW / 2, barCY, barW, barH, 0.3f, 0.3f, 0.3f);
+    // Desenho da barra (Fundo e Preenchimento)
+    glColor3f(0.2f, 0.2f, 0.2f);
+    drawRect(barCX - barW / 2, barCY, barW, barH, 0.2f, 0.2f, 0.2f);
 
-    // Preenchimento (Gradiente de Amarelo para Vermelho visualmente via lógica simples)
-    // Amarelo (1,1,0) -> Vermelho (1,0,0) diminuindo o Green
     float fillW = barW * chargePercentage_3D;
+    glColor3f(1.0f, 1.0f - chargePercentage_3D, 0.0f); // Amarelo -> Vermelho
     drawRect(barCX - barW / 2, barCY, fillW, barH, 1.0f, 1.0f - chargePercentage_3D, 0.0f);
 
-    // Borda Branca (Opcional, para acabamento)
+    // Texto com o Valor em Newtons (NOVO)
+    char forceText[50];
+    sprintf(forceText, "Forca: %.1f N", currentChargeForce_3D);
+
     glColor3f(1.0f, 1.0f, 1.0f);
-    glLineWidth(1.0f);
-    glBegin(GL_LINE_LOOP);
-    glVertex2f(barCX - barW / 2, barCY);
-    glVertex2f(barCX + barW / 2, barCY);
-    glVertex2f(barCX + barW / 2, barCY + barH);
-    glVertex2f(barCX - barW / 2, barCY + barH);
-    glEnd();
+    // Desenha logo acima da barra (-20px no Y)
+    drawTextCentered(barCX, barCY - 20.0f, forceText, GLUT_BITMAP_HELVETICA_18);
 }
 
 /**
@@ -636,15 +638,26 @@ void drawHUD()
         float centerX = w / 2.0f;
         float centerY = h / 2.0f;
 
-        // Cálculo do Deslocamento da Mira
-        // Se aimPitch > cameraPitch, a mira está "acima" da visão da câmera.
-        // Na tela 2D (0 no topo), "acima" significa diminuir Y.
-        // Multiplicador 10.0f define quantos pixels sobe por grau de diferença.
-        float pitchDiff = aimPitch_3D - cameraPitch_3D;
-        float offsetY = pitchDiff * 15.0f;
+        // [CORREÇÃO PRECISA DA MIRA]
 
+        // 1. Converter diferença de ângulo para Radianos
+        float pitchDiffDeg = aimPitch_3D - cameraPitch_3D;
+        float pitchDiffRad = pitchDiffDeg * M_PI / 180.0f;
+
+        // 2. Pegar o FOV (Field of View) que definimos no gameReshape (45 graus)
+        float fovDeg = 45.0f;
+        float fovRad = (fovDeg / 2.0f) * M_PI / 180.0f;
+
+        // 3. Fórmula Mágica da Projeção:
+        // Isso converte o ângulo 3D perfeitamente para pixels na tela 2D
+        // A tangente (tan) corrige a distorção da perspectiva.
+        float screenHalfHeight = h / 2.0f;
+        float offsetY = screenHalfHeight * (tan(pitchDiffRad) / tan(fovRad));
+
+        // 4. Aplica ao centro (Atenção ao sinal!)
+        // Se a mira estiver invertida visualmente (subindo quando devia descer), troque o '-' por '+'
+        float crossY = centerY + offsetY;
         float crossX = centerX;
-        float crossY = centerY - offsetY;
 
         // Desenha a cruz (Verde)
         glColor3f(0.0f, 1.0f, 0.0f);
@@ -667,12 +680,6 @@ void drawHUD()
     glPopMatrix();
 }
 
-/**
- * Desenha os vetores de debug (Normal, Atrito, Peso, Velocidade).
- */
-/**
- * Desenha os vetores de debug (Normal, Atrito, Peso, Velocidade).
- */
 /**
  * Desenha os vetores de debug (Normal, Atrito, Peso, Velocidade, Tensão).
  * Equivalente visual ao jogo 2D.
@@ -763,7 +770,7 @@ void drawDebugVectors()
         float pitchRad = cameraPitch_3D * M_PI / 180.0f;
 
         float dirX = -sin(yawRad) * cos(pitchRad);
-        float dirY = sin(pitchRad);
+        float dirY = -sin(pitchRad);
         float dirZ = -cos(yawRad) * cos(pitchRad);
 
         // Vetor Força de Lançamento
@@ -812,15 +819,21 @@ void gameStartLevel_3D(int level)
     isPressingLeft_3D = false;
     isPressingRight_3D = false;
 
+    isGrounded_3D = true;
+    isHooked_3D = false;
+    isHookFiring_3D = false;
+    isChargingHook_3D = false;
+    requestHookRelease_3D = false;
+
     // --- Configuração da Câmera ---
     cameraYaw_3D = 0.0f;
     cameraPitch_3D = 20.0f;
     aimPitch_3D = 20.0f;
 
-    // AJUSTE 2: Câmera mais afastada (De 25.0f para 40.0f)
-    cameraDistance = 25.0f;
+    // AJUSTE 2: Câmera mais afastada
+    cameraDistance = 20.0f;
 
-    // Resetar Física
+    // Resetar Física e Estados
     lastVelocityMag_3D = 0.0f;
     currentAcceleration_3D = 0.0f;
     forceNormalX_3D = 0;
@@ -837,6 +850,10 @@ void gameStartLevel_3D(int level)
     isHooked_3D = false;
     isHookFiring_3D = false;
     isChargingHook_3D = false;
+
+    // Resetar variáveis de jogo
+    isGameOver_3D = false;
+    isGameVictory_3D = false;
 
     platforms_3D.clear();
     breakableWalls_3D.clear();
@@ -859,11 +876,11 @@ void gameStartLevel_3D(int level)
         levelParameters_3D.playerWalkAccel = 60.0f;
         levelParameters_3D.maxWalkSpeed = 15.0f;
         levelParameters_3D.maxPlayerSpeed = 30.0f;
-
-        // AJUSTE 3: Escala visual (100N = 2x Altura do Player -> 0.04f)
+        levelParameters_3D.maxHookLength = 80.0f;
         levelParameters_3D.vectorVisualScale = 0.04f;
-
         levelParameters_3D.gravity = 20.0f;
+        levelParameters_3D.hookSpeed = 120.0f;
+        levelParameters_3D.maxShots = 8; // Define max shots da fase
 
         platforms_3D.push_back({-WORLD_WIDTH_3D / 2, -1.0f, -WORLD_DEPTH_3D / 2, WORLD_WIDTH_3D, 1.0f, WORLD_DEPTH_3D, 0.4f, 0.4f, 0.4f, true, 0.8f});
         platforms_3D.push_back({-20.0f, 5.0f, 10.0f, 10.0f, 1.0f, 20.0f, 0.4f, 0.4f, 0.4f, true, 0.2f});
@@ -884,8 +901,9 @@ void gameStartLevel_3D(int level)
     case 2:
         levelParameters_3D.playerMass = 8.0f;
         levelParameters_3D.playerWalkAccel = 70.0f;
-        // Mantém a escala visual consistente entre fases
         levelParameters_3D.vectorVisualScale = 0.04f;
+        levelParameters_3D.maxHookLength = 80.0f;
+        levelParameters_3D.maxShots = 6; // Define max shots da fase
 
         platforms_3D.push_back({-WORLD_WIDTH_3D / 2, -1.0f, -WORLD_DEPTH_3D / 2, WORLD_WIDTH_3D, 1.0f, WORLD_DEPTH_3D, 0.2f, 0.2f, 0.5f, true, 0.7f});
 
@@ -899,10 +917,16 @@ void gameStartLevel_3D(int level)
         return;
     }
 
+    // --- CORREÇÃO CRUCIAL: RECARREGAR MUNIÇÃO ---
+    shotsRemaining_3D = levelParameters_3D.maxShots;
+    // --------------------------------------------
+
     if (!platforms_3D.empty())
         collidingPlatform_3D = &platforms_3D[0];
     else
         collidingPlatform_3D = NULL;
+
+    shotsRemaining_3D = levelParameters_3D.maxShots;
 
     createWorldDisplayLists();
     createLevelVBOs();
@@ -910,7 +934,7 @@ void gameStartLevel_3D(int level)
 
 GameAction gameUpdate_3D()
 {
-    // --- 1. Controle de Vitória e Derrota ---
+    // 1. Vitória/Derrota
     if (isGameVictory_3D)
     {
         gameVictoryTimer_3D--;
@@ -921,7 +945,6 @@ GameAction gameUpdate_3D()
         }
         return GAME_ACTION_CONTINUE;
     }
-
     if (isGameOver_3D)
     {
         gameOverTimer_3D--;
@@ -933,19 +956,22 @@ GameAction gameUpdate_3D()
         return GAME_ACTION_CONTINUE;
     }
 
-    // --- 2. Cálculo do Delta Time ---
+    // 2. Delta Time
     int currentTime = glutGet(GLUT_ELAPSED_TIME);
     float deltaTime = (float)(currentTime - lastTime_3D) / 1000.0f;
     lastTime_3D = currentTime;
     if (deltaTime > 0.1f)
         deltaTime = 0.1f;
 
-    // --- 3. Inicialização de Forças ---
+    // 3. Variáveis Locais
     float prevPositionPlayerX = player_3D.x;
     float prevPositionPlayerY = player_3D.y;
     float prevPositionPlayerZ = player_3D.z;
 
-    // Reseta vetores visuais
+    float pCx = player_3D.x + player_3D.w / 2.0f;
+    float pCy = player_3D.y + player_3D.h / 2.0f;
+    float pCz = player_3D.z + player_3D.d / 2.0f;
+
     forceNormalX_3D = 0;
     forceNormalY_3D = 0;
     forceNormalZ_3D = 0;
@@ -956,14 +982,9 @@ GameAction gameUpdate_3D()
     forceTensionY_3D = 0;
     forceTensionZ_3D = 0;
 
-    // Gravidade
     float accelX = 0, accelY = -levelParameters_3D.gravity, accelZ = 0;
 
-    float pCx = player_3D.x + player_3D.w / 2.0f;
-    float pCy = player_3D.y + player_3D.h / 2.0f;
-    float pCz = player_3D.z + player_3D.d / 2.0f;
-
-    // --- 4. Zonas de Vento (Mantido igual) ---
+    // 4. Vento
     for (const auto &wind : windZones_3D)
     {
         if (isPointInsideBox(pCx, pCy, pCz, wind.x, wind.y, wind.z, wind.w, wind.h, wind.d))
@@ -974,47 +995,282 @@ GameAction gameUpdate_3D()
         }
     }
 
-    // --- 5. Física do Gancho (Puxada) (Mantido igual) ---
-    if (isHooked_3D)
-    {
-        float vecToHookX = hookPointX_3D - pCx;
-        float vecToHookY = hookPointY_3D - pCy;
-        float vecToHookZ = hookPointZ_3D - pCz;
-        float dist = sqrt(vecToHookX * vecToHookX + vecToHookY * vecToHookY + vecToHookZ * vecToHookZ);
+    // =========================================================================
+    // --- LÓGICA DO GANCHO ---
+    // =========================================================================
 
-        if (dist > 0.01f)
+    // A. CARREGAMENTO
+    if (isChargingHook_3D)
+    {
+        float chargeTime = (glutGet(GLUT_ELAPSED_TIME) - chargeStartTime_3D) / 1000.0f;
+        chargePercentage_3D = chargeTime / MAX_CHARGE_TIME_3D;
+        if (chargePercentage_3D > 1.0f)
+            chargePercentage_3D = 1.0f;
+        currentChargeForce_3D = chargePercentage_3D * MAX_AIM_FORCE_DISPLAY_3D;
+    }
+
+    // B. AÇÃO DE DISPARO (Botão Solto)
+    if (requestHookRelease_3D)
+    {
+        requestHookRelease_3D = false; // Consome o evento imediatamente
+
+        // Se estava PRESO, solta (Prioridade 1)
+        if (isHooked_3D)
         {
-            float normX = vecToHookX / dist;
-            float normY = vecToHookY / dist;
-            float normZ = vecToHookZ / dist;
-            accelX += normX * currentPullForce_3D;
-            accelY += normY * currentPullForce_3D;
-            accelZ += normZ * currentPullForce_3D;
-            forceTensionX_3D = normX * currentPullForce_3D;
-            forceTensionY_3D = normY * currentPullForce_3D;
-            forceTensionZ_3D = normZ * currentPullForce_3D;
+            isHooked_3D = false;
+            isGrounded_3D = false;
+            printf("UPDATE: Soltou do gancho.\n");
+        }
+        // Tenta disparar (Prioridade 2)
+        else
+        {
+            // A validação de munição deve ser feita AQUI
+            if (shotsRemaining_3D > 0)
+            {
+                // Zera qualquer estado residual
+                isHookFiring_3D = true;
+                isChargingHook_3D = false; // Garante que parou de carregar
+
+                shotsRemaining_3D--;
+
+                printf("UPDATE: DISPARO CONFIRMADO! Forca: %.1f. Restam: %d\n", currentChargeForce_3D, shotsRemaining_3D);
+
+                // --- CONFIGURAÇÃO DO PROJÉTIL ---
+                float fireYawRad, firePitchRad;
+
+                if (isMouseFree_3D)
+                {
+                    int mx = lastMouseX_3D;
+                    int my = lastMouseY_3D;
+                    int w = glutGet(GLUT_WINDOW_WIDTH);
+                    int h = glutGet(GLUT_WINDOW_HEIGHT);
+                    float fovY = 45.0f;
+                    float pixelsPerDegreeY = h / fovY;
+                    float deltaX = (float)(mx - (w / 2));
+                    float deltaY = (float)(my - (h / 2)); // Correção da inversão Y aplicada aqui
+                    float offsetYaw = deltaX / pixelsPerDegreeY;
+                    float offsetPitch = deltaY / pixelsPerDegreeY;
+                    fireYawRad = (cameraYaw_3D + offsetYaw) * M_PI / 180.0f;
+                    firePitchRad = (cameraPitch_3D + offsetPitch) * M_PI / 180.0f;
+                }
+                else
+                {
+                    fireYawRad = cameraYaw_3D * M_PI / 180.0f;
+                    firePitchRad = aimPitch_3D * M_PI / 180.0f;
+                }
+
+                // Direção do raio da câmera/olho
+                float dirX = -sin(fireYawRad) * cos(firePitchRad);
+                float dirY = -sin(firePitchRad); // Correção da inversão Y aplicada aqui
+                float dirZ = -cos(fireYawRad) * cos(firePitchRad);
+
+                // --- 1. DEFINIR ONDE O GANCHO NASCE (Igual ao que você tinha) ---
+                float spawnDistance = 2.0f;
+                hookProjectileX_3D = pCx + (dirX * spawnDistance);
+                hookProjectileY_3D = (pCy + (player_3D.h * 0.4f)) + (dirY * spawnDistance);
+                hookProjectileZ_3D = pCz + (dirZ * spawnDistance);
+
+                // --- 2. [LÓGICA NOVA] MIRA COM CONVERGÊNCIA AJUSTADA ---
+
+                // A. Onde está o OLHO da câmera?
+                float camRadPitch = cameraPitch_3D * M_PI / 180.0f;
+                float camRadYaw = cameraYaw_3D * M_PI / 180.0f;
+
+                // Posição exata da câmera
+                float camX = pCx + cameraDistance * cos(camRadPitch) * sin(camRadYaw);
+                float camY = (pCy + 3.0f) + cameraDistance * sin(camRadPitch);
+                float camZ = pCz + cameraDistance * cos(camRadPitch) * cos(camRadYaw);
+
+                // B. Onde está o ALVO? (Projeção do raio da MIRA)
+                // Usamos dirX, dirY, dirZ (que calculamos ali em cima com o mouse)
+                // porque eles representam o vetor "Olho -> Cruz na Tela"
+                float targetDist = 100.0f; // Alvo a 100m
+                float targetX = camX + (dirX * targetDist);
+                float targetY = camY + (dirY * targetDist);
+                float targetZ = camZ + (dirZ * targetDist);
+
+                // C. Vetor de Velocidade: Do PLAYER (spawn) -> ALVO
+                float vecX = targetX - hookProjectileX_3D;
+                float vecY = targetY - hookProjectileY_3D;
+                float vecZ = targetZ - hookProjectileZ_3D;
+
+                // Normaliza
+                float len = sqrt(vecX * vecX + vecY * vecY + vecZ * vecZ);
+                if (len > 0)
+                {
+                    vecX /= len;
+                    vecY /= len;
+                    vecZ /= len;
+                }
+
+                // Aplica velocidade
+                float speed = levelParameters_3D.hookSpeed;
+                hookProjectileVelX_3D = vecX * speed;
+                hookProjectileVelY_3D = vecY * speed;
+                hookProjectileVelZ_3D = vecZ * speed;
+                // -----------------------------------------------------------
+
+                // Define Força Física
+                float forceFactor = currentChargeForce_3D / MAX_AIM_FORCE_DISPLAY_3D;
+                currentPullForce_3D = forceFactor * levelParameters_3D.maxPullStrengthPhysics;
+            }
+            else
+            {
+                printf("UPDATE: Falha no disparo (Sem municao ou estado invalido).\n");
+            }
         }
     }
 
-    // =========================================================================
-    // --- 6. Movimentação e Atrito (CORRIGIDO) ---
-    // =========================================================================
+    // C. PROJÉTIL VOANDO
+    if (isHookFiring_3D)
+    {
+        float prevHX = hookProjectileX_3D;
+        float prevHY = hookProjectileY_3D;
+        float prevHZ = hookProjectileZ_3D;
 
+        // Move o projétil
+        hookProjectileX_3D += hookProjectileVelX_3D * deltaTime;
+        hookProjectileY_3D += hookProjectileVelY_3D * deltaTime;
+        hookProjectileZ_3D += hookProjectileVelZ_3D * deltaTime;
+
+        // --- DEBUG DE MOVIMENTO ---
+        // Isso vai floodar o terminal um pouco, mas é necessário para entender o erro.
+        // Se Vel for 0 ou Pos não mudar, saberemos o motivo.
+        // printf("VOANDO: Pos(%.2f, %.2f, %.2f) Vel(%.2f, %.2f) dt: %.4f\n",
+        //        hookProjectileX_3D, hookProjectileY_3D, hookProjectileZ_3D,
+        //        hookProjectileVelX_3D, hookProjectileVelY_3D, deltaTime);
+
+        // 1. Verifica Limite Máximo (Corda Max)
+        float distOriginSq = pow(hookProjectileX_3D - pCx, 2) +
+                             pow(hookProjectileY_3D - pCy, 2) +
+                             pow(hookProjectileZ_3D - pCz, 2);
+
+        if (distOriginSq > levelParameters_3D.maxHookLength * levelParameters_3D.maxHookLength)
+        {
+            isHookFiring_3D = false;
+            printf("FIM DE CURSO: Gancho nao alcancou nada.\n");
+        }
+        else
+        {
+            // 2. Verifica Colisão com Plataformas
+            // 2. Verifica Colisão com Plataformas
+            for (auto &p : platforms_3D)
+            {
+                // [FIX ROBUSTO] Ignora colisão com qualquer plataforma que o jogador esteja TOCANDO ou MUITO PERTO.
+                // Expandimos a caixa do jogador em 1.0f para este teste. Isso cobre o chão onde pisamos.
+                if (checkAABBCollision(player_3D.x - 0.5f, player_3D.y - 0.5f, player_3D.z - 0.5f,
+                                       player_3D.w + 1.0f, player_3D.h + 1.0f, player_3D.d + 1.0f,
+                                       p.x, p.y, p.z, p.w, p.h, p.d))
+                {
+                    continue; // É o chão ou uma parede que estamos encostados. Ignora.
+                }
+
+                if (p.isHookable && p.frictionCoefficient > 0.001f)
+                {
+                    float hX, hY, hZ;
+                    // Passamos a posição ANTERIOR e a ATUAL para verificar o trajeto (Raycast)
+                    // Nota: Certifique-se que sua função lineBoxIntersection em utils trata o segmento,
+                    // ou se for apenas ponto, a velocidade alta + spawn distance ajudará a não bugar.
+                    if (lineBoxIntersection(prevHX, prevHY, prevHZ,
+                                            hookProjectileX_3D, hookProjectileY_3D, hookProjectileZ_3D,
+                                            p, hX, hY, hZ))
+                    {
+                        // Código de colisão confirmada (igual ao seu original)
+                        isHookFiring_3D = false;
+                        isHooked_3D = true;
+                        hookPointX_3D = hX;
+                        hookPointY_3D = hY;
+                        hookPointZ_3D = hZ;
+                        float distSq = pow(hX - pCx, 2) + pow(hY - pCy, 2) + pow(hZ - pCz, 2);
+                        ropeLength_3D = sqrt(distSq);
+                        isGrounded_3D = false;
+                        printf("COLISAO: Gancho PRENDEU em %.2f, %.2f, %.2f!\n", hX, hY, hZ);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    // D. FÍSICA PRESO
+    if (isHooked_3D)
+    {
+        // Vetor do Player até o Gancho
+        float vecX = hookPointX_3D - pCx;
+        float vecY = hookPointY_3D - pCy;
+        float vecZ = hookPointZ_3D - pCz;
+        float currDist = sqrt(vecX * vecX + vecY * vecY + vecZ * vecZ);
+
+        if (currDist > 0.01f)
+        {
+            // Direção normalizada
+            float normX = vecX / currDist;
+            float normY = vecY / currDist;
+            float normZ = vecZ / currDist;
+
+            // 1. APLICAÇÃO DE FORÇA (PUXADA)
+            // Acelera o player na direção do gancho proporcional à força carregada
+            accelX += normX * currentPullForce_3D;
+            accelY += normY * currentPullForce_3D;
+            accelZ += normZ * currentPullForce_3D;
+
+            // Guarda os valores para visualização do vetor T (Tensão)
+            forceTensionX_3D = normX * currentPullForce_3D;
+            forceTensionY_3D = normY * currentPullForce_3D;
+            forceTensionZ_3D = normZ * currentPullForce_3D;
+
+            // 2. RESTRIÇÃO DE CORDA (CONSTRAINT)
+            // Se a distância atual for maior que a corda, puxa de volta (impede esticar)
+            if (currDist > ropeLength_3D)
+            {
+                float stretch = currDist - ropeLength_3D;
+
+                // Corrige a posição
+                player_3D.x += normX * stretch;
+                player_3D.y += normY * stretch;
+                player_3D.z += normZ * stretch;
+
+                // Corrige a velocidade (Remove a componente de velocidade que afasta do gancho)
+                // Dot product da velocidade com a normal da corda
+                float velAlongRope = player_3D.velocityX * normX +
+                                     player_3D.velocityY * normY +
+                                     player_3D.velocityZ * normZ;
+
+                // Se a velocidade for "para fora" (esticando a corda), zera essa componente
+                // mantendo a velocidade tangencial (pêndulo)
+                if (velAlongRope < 0)
+                { // Nota: Depende do sentido do vetor norm. Se norm aponta pro gancho, velAlong < 0 é aproximando.
+                    // Aqui norm aponta Player -> Gancho. Se velAlongRope for negativo, ele está indo na direção contrária ao gancho?
+                    // Não, se norm é P->G, velocidade positiva é indo pro gancho. Negativa é se afastando.
+                    // Ops, se o vetor é P->G, e ele se afasta, o dot product com P->G deve ser negativo? Não.
+                    // Vamos simplificar: Projeta V em N e subtrai.
+                    player_3D.velocityX -= normX * velAlongRope;
+                    player_3D.velocityY -= normY * velAlongRope;
+                    player_3D.velocityZ -= normZ * velAlongRope;
+                }
+                // Correção: Se 'norm' é (Gancho - Player), ele aponta PARA o gancho.
+                // Se eu me afasto, minha velocidade está oposta a 'norm'. O dot product é negativo.
+                // Então a lógica: if (velAlongRope < 0) está correta para "se afastando".
+            }
+        }
+
+        // Amortecimento (Damping) para simular resistência do ar e evitar balanço eterno
+        player_3D.velocityX *= levelParameters_3D.dampingFactor;
+        player_3D.velocityY *= levelParameters_3D.dampingFactor;
+        player_3D.velocityZ *= levelParameters_3D.dampingFactor;
+    }
+
+    // 6. Movimento no Chão
     if (isGrounded_3D)
     {
         forceNormalY_3D = levelParameters_3D.gravity * levelParameters_3D.playerMass;
-
-        // 1. Calcula Direção baseada na Câmera
         float yawRad = cameraYaw_3D * M_PI / 180.0f;
         float fwdX = -sin(yawRad);
         float fwdZ = -cos(yawRad);
         float rightX = cos(yawRad);
         float rightZ = -sin(yawRad);
-
         float walkForce = levelParameters_3D.playerWalkAccel;
         bool isMoving = false;
 
-        // 2. Aplica Força de Movimento
         if (isPressingForward_3D)
         {
             accelX += fwdX * walkForce;
@@ -1040,87 +1296,49 @@ GameAction gameUpdate_3D()
             isMoving = true;
         }
 
-        // 3. Atrito (Damping)
-        // Se não estiver movendo (ou mesmo se estiver), o atrito tenta parar o player
         float frictionCoef = 0.8f;
         if (collidingPlatform_3D)
             frictionCoef = collidingPlatform_3D->frictionCoefficient;
-
-        // A força de atrito é proporcional à velocidade
-        // F_atrito = -V * coeficiente (simplificado para damping linear)
         float damping = 5.0f * frictionCoef;
-
-        // Se soltou as teclas, damping muito maior para parar rápido
         if (!isMoving)
             damping *= 2.0f;
 
         player_3D.velocityX -= player_3D.velocityX * damping * deltaTime;
         player_3D.velocityZ -= player_3D.velocityZ * damping * deltaTime;
-
-        // Salva vetor para visualização (oposto à velocidade)
         forceFrictionX_3D = -player_3D.velocityX * damping;
         forceFrictionZ_3D = -player_3D.velocityZ * damping;
     }
 
-    // --- 7. Lógica de Carregamento e Disparo (Mantido igual) ---
-    if (isChargingHook_3D)
-    {
-        float chargeTime = (glutGet(GLUT_ELAPSED_TIME) - chargeStartTime_3D) / 1000.0f;
-        chargePercentage_3D = chargeTime / MAX_CHARGE_TIME_3D;
-        if (chargePercentage_3D > 1.0f)
-            chargePercentage_3D = 1.0f;
-        currentChargeForce_3D = chargePercentage_3D * MAX_AIM_FORCE_DISPLAY_3D;
-    }
-
-    if (requestHookRelease_3D)
-    {
-        if (isHooked_3D)
-        {
-            isHooked_3D = false;
-        }
-        else if (isChargingHook_3D)
-        {
-            isChargingHook_3D = false;
-            isHookFiring_3D = true;
-            hookProjectileX_3D = pCx;
-            hookProjectileY_3D = pCy;
-            hookProjectileZ_3D = pCz;
-            float yawRad = cameraYaw_3D * M_PI / 180.0f;
-            float pitchRad = aimPitch_3D * M_PI / 180.0f;
-            float dirX = -sin(yawRad) * cos(pitchRad);
-            float dirY = sin(pitchRad);
-            float dirZ = -cos(yawRad) * cos(pitchRad);
-            float speed = levelParameters_3D.hookSpeed;
-            hookProjectileVelX_3D = dirX * speed;
-            hookProjectileVelY_3D = dirY * speed;
-            hookProjectileVelZ_3D = dirZ * speed;
-            currentPullForce_3D = currentChargeForce_3D;
-        }
-        requestHookRelease_3D = false;
-    }
-
-    // --- 8. Integração de Euler ---
+    // 8. Integração
     player_3D.velocityX += accelX * deltaTime;
     player_3D.velocityY += accelY * deltaTime;
     player_3D.velocityZ += accelZ * deltaTime;
 
-    // Limite de Velocidade (XZ)
+    // Limites Velocidade
     if (isGrounded_3D)
     {
         float velXZ = sqrt(player_3D.velocityX * player_3D.velocityX + player_3D.velocityZ * player_3D.velocityZ);
         if (velXZ > levelParameters_3D.maxWalkSpeed)
         {
-            float scale = levelParameters_3D.maxWalkSpeed / velXZ;
-            player_3D.velocityX *= scale;
-            player_3D.velocityZ *= scale;
+            float s = levelParameters_3D.maxWalkSpeed / velXZ;
+            player_3D.velocityX *= s;
+            player_3D.velocityZ *= s;
         }
+    }
+    float totalSpeed = sqrt(player_3D.velocityX * player_3D.velocityX + player_3D.velocityY * player_3D.velocityY + player_3D.velocityZ * player_3D.velocityZ);
+    if (totalSpeed > levelParameters_3D.maxPlayerSpeed)
+    {
+        float s = levelParameters_3D.maxPlayerSpeed / totalSpeed;
+        player_3D.velocityX *= s;
+        player_3D.velocityY *= s;
+        player_3D.velocityZ *= s;
     }
 
     player_3D.x += player_3D.velocityX * deltaTime;
     player_3D.y += player_3D.velocityY * deltaTime;
     player_3D.z += player_3D.velocityZ * deltaTime;
 
-    // --- 9. Colisões com Limites e Espinhos (Mantido igual) ---
+    // 9. Colisões e Limites
     if (player_3D.y < DEATH_BOUNDARY_Y_3D)
     {
         isGameOver_3D = true;
@@ -1136,15 +1354,12 @@ GameAction gameUpdate_3D()
             return GAME_ACTION_CONTINUE;
         }
     }
-
-    // --- 10. Paredes Quebráveis (Mantido igual) ---
     for (auto &wall : breakableWalls_3D)
     {
         if (wall.isBroken)
             continue;
         if (checkAABBCollision(player_3D.x, player_3D.y, player_3D.z, player_3D.w, player_3D.h, player_3D.d, wall.x, wall.y, wall.z, wall.w, wall.h, wall.d))
         {
-            float totalSpeed = sqrt(player_3D.velocityX * player_3D.velocityX + player_3D.velocityY * player_3D.velocityY + player_3D.velocityZ * player_3D.velocityZ);
             float impactForce = levelParameters_3D.playerMass * totalSpeed;
             if (impactForce >= wall.strength)
             {
@@ -1155,6 +1370,7 @@ GameAction gameUpdate_3D()
             else
             {
                 player_3D.x = prevPositionPlayerX;
+                player_3D.y = prevPositionPlayerY;
                 player_3D.z = prevPositionPlayerZ;
                 player_3D.velocityX = 0;
                 player_3D.velocityZ = 0;
@@ -1162,19 +1378,14 @@ GameAction gameUpdate_3D()
         }
     }
 
-    // --- 11. Colisão com Plataformas (CORRIGIDO) ---
     isGrounded_3D = false;
     collidingPlatform_3D = NULL;
-    float prevYApprox = player_3D.y - player_3D.velocityY * deltaTime;
+    float prevYApprox = prevPositionPlayerY;
 
     for (auto &p : platforms_3D)
     {
-        if (checkAABBCollision(player_3D.x, player_3D.y, player_3D.z, player_3D.w, player_3D.h, player_3D.d,
-                               p.x, p.y, p.z, p.w, p.h, p.d))
+        if (checkAABBCollision(player_3D.x, player_3D.y, player_3D.z, player_3D.w, player_3D.h, player_3D.d, p.x, p.y, p.z, p.w, p.h, p.d))
         {
-
-            // Pouso (Vindo de cima)
-            // Verifica se a base do player estava acima do topo da plataforma no frame anterior
             if (prevYApprox >= p.y + p.h - 0.2f && player_3D.velocityY <= 0)
             {
                 player_3D.y = p.y + p.h;
@@ -1184,7 +1395,6 @@ GameAction gameUpdate_3D()
                 if (isHooked_3D)
                     isHooked_3D = false;
             }
-            // Cabeçada (Vindo de baixo)
             else if (prevYApprox + player_3D.h <= p.y + 0.2f && player_3D.velocityY > 0)
             {
                 player_3D.y = p.y - player_3D.h;
@@ -1193,70 +1403,6 @@ GameAction gameUpdate_3D()
         }
     }
 
-    // --- 12. Restrição de Corda (Mantido igual) ---
-    if (isHooked_3D)
-    {
-        float vecX = hookPointX_3D - pCx;
-        float vecY = hookPointY_3D - pCy;
-        float vecZ = hookPointZ_3D - pCz;
-        float currDist = sqrt(vecX * vecX + vecY * vecY + vecZ * vecZ);
-        if (currDist > ropeLength_3D)
-        {
-            float stretch = currDist - ropeLength_3D;
-            float nX = vecX / currDist;
-            float nY = vecY / currDist;
-            float nZ = vecZ / currDist;
-            player_3D.x += nX * stretch;
-            player_3D.y += nY * stretch;
-            player_3D.z += nZ * stretch;
-            float velAlongRope = player_3D.velocityX * nX + player_3D.velocityY * nY + player_3D.velocityZ * nZ;
-            if (velAlongRope < 0)
-            {
-                player_3D.velocityX -= nX * velAlongRope;
-                player_3D.velocityY -= nY * velAlongRope;
-                player_3D.velocityZ -= nZ * velAlongRope;
-            }
-        }
-        player_3D.velocityX *= levelParameters_3D.dampingFactor;
-        player_3D.velocityY *= levelParameters_3D.dampingFactor;
-        player_3D.velocityZ *= levelParameters_3D.dampingFactor;
-    }
-
-    // --- 13. Projétil do Gancho (Mantido igual) ---
-    if (isHookFiring_3D)
-    {
-        float prevHX = hookProjectileX_3D;
-        float prevHY = hookProjectileY_3D;
-        float prevHZ = hookProjectileZ_3D;
-        hookProjectileX_3D += hookProjectileVelX_3D * deltaTime;
-        hookProjectileY_3D += hookProjectileVelY_3D * deltaTime;
-        hookProjectileZ_3D += hookProjectileVelZ_3D * deltaTime;
-        bool hit = false;
-        for (auto &p : platforms_3D)
-        {
-            float hX, hY, hZ;
-            if (p.isHookable && lineBoxIntersection(prevHX, prevHY, prevHZ, hookProjectileX_3D, hookProjectileY_3D, hookProjectileZ_3D, p, hX, hY, hZ))
-            {
-                isHookFiring_3D = false;
-                isHooked_3D = true;
-                hookPointX_3D = hX;
-                hookPointY_3D = hY;
-                hookPointZ_3D = hZ;
-                float dx = hookPointX_3D - (player_3D.x + player_3D.w / 2);
-                float dy = hookPointY_3D - (player_3D.y + player_3D.h / 2);
-                float dz = hookPointZ_3D - (player_3D.z + player_3D.d / 2);
-                ropeLength_3D = sqrt(dx * dx + dy * dy + dz * dz);
-                isGrounded_3D = false;
-                hit = true;
-                break;
-            }
-        }
-        float dist = sqrt(pow(hookProjectileX_3D - pCx, 2) + pow(hookProjectileY_3D - pCy, 2) + pow(hookProjectileZ_3D - pCz, 2));
-        if (dist > VIEW_WIDTH_3D && !hit)
-            isHookFiring_3D = false;
-    }
-
-    // --- 14. Vitória (Mantido igual) ---
     if (checkAABBCollision(player_3D.x, player_3D.y, player_3D.z, player_3D.w, player_3D.h, player_3D.d, door_3D.x, door_3D.y, door_3D.z, door_3D.w, door_3D.h, door_3D.d))
     {
         isGameVictory_3D = true;
@@ -1353,17 +1499,41 @@ void gameDisplay_3D()
     // Corda
     if (isHooked_3D || isHookFiring_3D)
     {
+        // Desabilita luz para garantir que a linha tenha cor sólida
         glDisable(GL_LIGHTING);
         glLineWidth(2.0f);
-        glColor3f(0.8f, 0.8f, 0.8f);
+        glColor3f(0.8f, 0.8f, 0.8f); // Cor cinza claro visível
+
+        // Calcula centro do player para início da linha
+        float cx = player_3D.x + player_3D.w / 2.0f;
+        float cyShot = player_3D.y + player_3D.h / 2.0f + (player_3D.h * 0.4f);
+        float cz = player_3D.z + player_3D.d / 2.0f;
+
         glBegin(GL_LINES);
-        glVertex3f(cx, cy, cz);
+        glVertex3f(cx, cyShot, cz); // Início: Player
+
+        // Fim: Projétil voando OU Ponto preso
         if (isHookFiring_3D)
+        {
             glVertex3f(hookProjectileX_3D, hookProjectileY_3D, hookProjectileZ_3D);
+        }
         else
+        {
             glVertex3f(hookPointX_3D, hookPointY_3D, hookPointZ_3D);
+        }
         glEnd();
-        glEnable(GL_LIGHTING);
+
+        // Desenha a ponta (esfera) se estiver voando
+        if (isHookFiring_3D)
+        {
+            glPushMatrix();
+            glTranslatef(hookProjectileX_3D, hookProjectileY_3D, hookProjectileZ_3D);
+            glColor3f(1.0f, 1.0f, 0.0f); // Amarelo para destacar
+            glutSolidSphere(0.3f, 8, 8); // Esfera um pouco maior
+            glPopMatrix();
+        }
+
+        glEnable(GL_LIGHTING); // Restaura
     }
 
     // --- 4. VETORES FÍSICOS (Debug) ---
@@ -1418,26 +1588,26 @@ void gameDisplay_3D()
         // aimPitch_3D (Mira) vs cameraPitch_3D (Câmera travada)
         // Exemplo: Mira no céu (-60) - Câmera travada (-20) = -40 (Diferença)
         float pitchDiff = aimPitch_3D - cameraPitch_3D;
-        
+
         // Sensibilidade visual (pixels por grau)
-        float pixelsPerDegree = 12.0f; 
-        
+        float pixelsPerDegree = 12.0f;
+
         // Como Y=0 é no topo da tela:
         // Se pitchDiff é negativo (olhando pra cima), queremos diminuir o Y.
         // Então somamos o número negativo.
-        float crossY = centerY + (pitchDiff * pixelsPerDegree); 
+        float crossY = centerY + (pitchDiff * pixelsPerDegree);
 
         // Desenha a cruz (Verde)
         glColor3f(0.0f, 1.0f, 0.0f);
         glLineWidth(2.0f);
         float size = 10.0f;
         glBegin(GL_LINES);
-            // Linha Horizontal
-            glVertex2f(centerX - size, crossY); 
-            glVertex2f(centerX + size, crossY);
-            // Linha Vertical
-            glVertex2f(centerX, crossY - size); 
-            glVertex2f(centerX, crossY + size);
+        // Linha Horizontal
+        glVertex2f(centerX - size, crossY);
+        glVertex2f(centerX + size, crossY);
+        // Linha Vertical
+        glVertex2f(centerX, crossY - size);
+        glVertex2f(centerX, crossY + size);
         glEnd();
     }
 
@@ -1488,12 +1658,18 @@ void gameReshape_3D(int w, int h)
  */
 void gameMouseMotion_3D(int x, int y)
 {
-    if (isMouseFree_3D) return;
+
+    lastMouseX_3D = x;
+    lastMouseY_3D = y;
+
+    if (isMouseFree_3D)
+        return;
     int w = glutGet(GLUT_WINDOW_WIDTH);
     int h = glutGet(GLUT_WINDOW_HEIGHT);
     int cx = w / 2, cy = h / 2;
 
-    if (!mouseInitialized_3D) {
+    if (!mouseInitialized_3D)
+    {
         mouseInitialized_3D = true;
         glutWarpPointer(cx, cy);
         return;
@@ -1502,29 +1678,76 @@ void gameMouseMotion_3D(int x, int y)
     float dx = (float)(x - cx);
     float dy = (float)(cy - y);
 
-    if (dx == 0 && dy == 0) return;
+    if (dx == 0 && dy == 0)
+        return;
 
     // 1. Yaw (Horizontal)
     cameraYaw_3D -= dx * MOUSE_SENSITIVITY_3D;
 
-    // 2. Pitch (Vertical) - MIRA (Aim)
-    // Mouse Cima -> Valor Diminui (Negativo = Olhar pro Céu)
+    // 2. Pitch (Vertical) - MIRA PRIMEIRO
     aimPitch_3D -= dy * MOUSE_SENSITIVITY_3D;
 
-    // Trava absoluta da mira (Pode olhar totalmente para cima ou para baixo)
-    if (aimPitch_3D < -89.0f) aimPitch_3D = -89.0f; 
-    if (aimPitch_3D > 89.0f)  aimPitch_3D = 89.0f;
+    // ---------------------------------------------------------
+    // PASSO A: Calcular onde a CÂMERA deve ficar (Limites Físicos)
+    // ---------------------------------------------------------
 
-    // 3. Pitch da CÂMERA (Segue a mira, mas com cinto de segurança)
-    cameraPitch_3D = aimPitch_3D;
+    float targetCameraPitch = aimPitch_3D;
 
-    // LIMITADOR INFERIOR (Olhar para o Céu -> Câmera desce)
-    // Se o ângulo for menor que 5.0f (ou seja, indo para 0 ou negativo),
-    // travamos em 5.0f para a câmera ficar sempre um pouco acima da linha da cintura.
-    // Isso impede que ela entre no chão.
-    if (cameraPitch_3D < MIN_PITCH_3D) { 
-       cameraPitch_3D = MIN_PITCH_3D; 
+    // Cálculo Dinâmico do Limite Inferior (Não ver através do chão)
+    float margin = 2.0f;
+    float heightDiff = (FLOOR_Y + margin) - player_3D.y;
+    float ratio = heightDiff / cameraDistance;
+
+    if (ratio < -1.0f)
+        ratio = -1.0f;
+    if (ratio > 1.0f)
+        ratio = 1.0f;
+
+    float dynamicMinPitch = asin(ratio) * 180.0f / M_PI;
+
+    // Aplica os limites físicos na CÂMERA ALVO
+    if (targetCameraPitch < dynamicMinPitch)
+    {
+        targetCameraPitch = dynamicMinPitch;
     }
+    if (targetCameraPitch > MAX_PITCH_3D)
+    {
+        targetCameraPitch = MAX_PITCH_3D;
+    }
+
+    // ---------------------------------------------------------
+    // PASSO B: Trava de Tela (Restringir a MIRA em relação à CÂMERA)
+    // ---------------------------------------------------------
+    // Agora que sabemos onde a câmera VAI ficar (targetCameraPitch),
+    // garantimos que a mira não se afaste demais dela.
+
+    const float PIXELS_PER_DEGREE = 15.0f;
+    float maxAngleDiff = ((h / 2.0f) - 20.0f) / PIXELS_PER_DEGREE;
+
+    // Se a mira subiu demais em relação à câmera travada
+    if (aimPitch_3D < targetCameraPitch - maxAngleDiff)
+    {
+        aimPitch_3D = targetCameraPitch - maxAngleDiff;
+    }
+
+    // Se a mira desceu demais
+    if (aimPitch_3D > targetCameraPitch + maxAngleDiff)
+    {
+        aimPitch_3D = targetCameraPitch + maxAngleDiff;
+    }
+
+    // ---------------------------------------------------------
+    // PASSO C: Finalizar
+    // ---------------------------------------------------------
+
+    // Atualiza a câmera real com o valor calculado e travado
+    cameraPitch_3D = targetCameraPitch;
+
+    // Limites absolutos de segurança para a mira (evita inversão 360)
+    if (aimPitch_3D < -89.0f)
+        aimPitch_3D = -89.0f;
+    if (aimPitch_3D > 89.0f)
+        aimPitch_3D = 89.0f;
 
     glutWarpPointer(cx, cy);
 }
@@ -1534,10 +1757,38 @@ void gameMouseMotion_3D(int x, int y)
  */
 void gameMouseClick_3D(int button, int state)
 {
-    if (button == GLUT_LEFT_BUTTON && state == GLUT_DOWN)
+    if (isGameOver_3D || isGameVictory_3D)
+        return;
+
+    if (button == GLUT_LEFT_BUTTON)
     {
-        printf("Disparar gancho 3D!\n");
-        // Lógica do gancho 3D
+        if (state == GLUT_DOWN)
+        {
+            // Inicia carregamento
+            if (!isHooked_3D && !isHookFiring_3D && shotsRemaining_3D > 0)
+            {
+                isChargingHook_3D = true;
+                chargeStartTime_3D = glutGet(GLUT_ELAPSED_TIME);
+                currentChargeForce_3D = 0.0f;
+                chargePercentage_3D = 0.0f;
+                printf("MOUSE DOWN: Carregando...\n");
+            }
+            else
+            {
+                printf("MOUSE DOWN: Bloqueado (Preso=%d, Voando=%d, Tiros=%d)\n",
+                       isHooked_3D, isHookFiring_3D, shotsRemaining_3D);
+            }
+        }
+        else if (state == GLUT_UP)
+        {
+            // Finaliza e solicita disparo
+            if (isChargingHook_3D)
+            {
+                isChargingHook_3D = false; // Importante: parar de carregar
+                requestHookRelease_3D = true;
+                printf("MOUSE UP: Solicitando disparo!\n");
+            }
+        }
     }
 }
 
@@ -1548,7 +1799,6 @@ GameAction gameKeyDown_3D(unsigned char key, int x, int y)
 {
     switch (key)
     {
-    // --- Movimentação (WASD) ---
     case 'w':
     case 'W':
         isPressingForward_3D = true;
@@ -1566,44 +1816,50 @@ GameAction gameKeyDown_3D(unsigned char key, int x, int y)
         isPressingRight_3D = true;
         break;
 
-    // --- Lógica para alternar o modo do Mouse ('M' ou TAB/ESC se preferir) ---
-    case 'm':
-    case 'M':
-        isMouseFree_3D = !isMouseFree_3D; // Inverte o estado (Variável com sufixo _3D)
-
-        if (isMouseFree_3D)
+    // --- ESPAÇO: Soltar ou Cancelar Gancho ---
+    case 32:
+        // Se estiver PRESO (Hooked) OU VOANDO (Firing/Travado)
+        if (isHooked_3D || isHookFiring_3D)
         {
-            glutSetCursor(GLUT_CURSOR_LEFT_ARROW); // Mostra o mouse para clicar em menus
+            isHooked_3D = false;
+            isHookFiring_3D = false; // Força o cancelamento do estado "Voando"
+            isGrounded_3D = false;
+
+            // Limpa vetores visuais
+            forceTensionX_3D = 0;
+            forceTensionY_3D = 0;
+            forceTensionZ_3D = 0;
+
+            printf("COMANDO: Gancho cancelado/solto pelo Espaco!\n");
         }
-        else
+
+        if (isChargingHook_3D)
         {
-            glutSetCursor(GLUT_CURSOR_NONE); // Esconde o mouse para jogar
-
-            // Centraliza para evitar "pulo" da câmera ao voltar
-            int w = glutGet(GLUT_WINDOW_WIDTH);
-            int h = glutGet(GLUT_WINDOW_HEIGHT);
-            glutWarpPointer(w / 2, h / 2);
-
-            mouseInitialized_3D = false; // Reseta a lógica de inicialização do mouse
+            isChargingHook_3D = false;
+            chargePercentage_3D = 0.0f;
+            printf("COMANDO: Carregamento cancelado.\n");
         }
         break;
 
-    // --- Sair para o Menu ---
+    case 'm':
+    case 'M':
+        isMouseFree_3D = !isMouseFree_3D;
+        if (isMouseFree_3D)
+            glutSetCursor(GLUT_CURSOR_LEFT_ARROW);
+        else
+        {
+            glutSetCursor(GLUT_CURSOR_NONE);
+            int w = glutGet(GLUT_WINDOW_WIDTH);
+            int h = glutGet(GLUT_WINDOW_HEIGHT);
+            glutWarpPointer(w / 2, h / 2);
+            mouseInitialized_3D = false;
+        }
+        break;
+
     case 'q':
     case 'Q':
-        // --- LIMPEZA DO ESTADO OPENGL ANTES DE SAIR ---
-        // Isso garante que o menu 2D não seja afetado pelas luzes/profundidade do 3D
-        glDisable(GL_LIGHTING);
-        glDisable(GL_DEPTH_TEST);
-        glDisable(GL_COLOR_MATERIAL);
-
-        // Reseta a cor atual para branco puro
-        glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-
-        // Garante que o cursor apareça no menu
+        isMouseFree_3D = true;
         glutSetCursor(GLUT_CURSOR_LEFT_ARROW);
-        isMouseFree_3D = true; // Libera o mouse logicamente
-
         return GAME_ACTION_EXIT_TO_MENU;
     }
     return GAME_ACTION_CONTINUE;
