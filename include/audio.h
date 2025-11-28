@@ -32,3 +32,5 @@ namespace Audio {
     void setSoundVolume(const std::string& id, int volume);
 
 }
+
+void loadGameAudio();

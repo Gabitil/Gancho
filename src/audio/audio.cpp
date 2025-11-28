@@ -137,3 +137,27 @@ namespace Audio {
     }
 
 } // namespace Audio
+
+
+void loadGameAudio()
+{
+  // Inicializa o áudio
+    if(!Audio::init()) {
+        fprintf(stderr, "Falha ao inicializar o sistema de audio.\n");
+    }
+
+    Audio::loadMusic("tema_menu", "assets/audio/8bit_Bossa.mp3");
+
+
+    Audio::playMusic("tema_menu", -1); // Loop da música de fundo
+
+    Audio::loadMusic("fase1_2D", "assets/audio/easy_joy.ogg");
+    Audio::loadMusic("fase2_2D", "assets/audio/happy_adveture.mp3");
+    // Audio::loadMusic("fase3_2D", "assets/audio/fase3_2d.ogg");
+
+    // // Carrega efeitos sonoros
+    // Audio::loadSound("jump", "assets/audio/jump.wav");
+    // Audio::loadSound("grappling_hook", "assets/audio/grappling_hook.wav");
+    // Audio::loadSound("win_level", "assets/audio/win_level.wav");
+    // Audio::loadSound("game_over", "assets/audio/game_over.wav");
+}

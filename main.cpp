@@ -153,6 +153,8 @@ extern void loadGameTextures_3D();
 /**
  * Carrega todas as texturas do jogo 2D.
  */
+
+
 void loadGameTextures()
 {
   // Texturas do Jogador
@@ -676,6 +678,14 @@ void mouseClick(int button, int state, int x, int y)
             currentState = STATE_GAME_2D;
             gameStartLevel(activeLevel_2D);
             loadGameTextures();
+            Audio::stopMusic();
+            switch (activeLevel_2D)
+            {
+              case 1: Audio::playMusic("fase1_2D", -1); break;
+              case 2: Audio::playMusic("fase2_2D", -1); break;
+              //case 3: Audio::playMusic("fase3_2D", -1); break;
+              default: break;
+            }
             glutTimerFunc(16, timer, 0);
             break;
           }
@@ -695,7 +705,14 @@ void mouseClick(int button, int state, int x, int y)
             currentState = STATE_GAME_3D;
             gameStartLevel_3D(activeLevel_3D);
             loadGameTextures_3D();
-
+            //Audio::stopMusic();
+            // switch (activeLevel_3D)
+            // {
+            //   case 1: Audio::playMusic("fase1_2D", -1); break;
+            //   case 2: Audio::playMusic("fase2_2D", -1); break;
+            //   case 3: Audio::playMusic("fase3_2D", -1); break;
+            //   default: break;
+            // }
             reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
 
             glutTimerFunc(16, timer, 0);
@@ -729,6 +746,8 @@ void keyboardDown(unsigned char key, int x, int y)
     {
       currentState = STATE_LEVEL_SELECT_2D;
       reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
+      Audio::stopMusic();
+      Audio::playMusic("tema_menu", -1);
       glutPostRedisplay();
     }
   }
@@ -901,17 +920,7 @@ void init()
 
   // Carrega as texturas do jogo 2D (pré-carregamento)
   loadGameTextures();
-
-  // Inicializa o áudio
-  if(!Audio::init()) {
-      fprintf(stderr, "Falha ao inicializar o sistema de audio.\n");
-  }
-
-  Audio::loadMusic("menu_theme", "assets/audio/safe_room_theme.ogg");
-
-
-  Audio::playMusic("menu_theme", -1); // Loop da música de fundo
-
+  loadGameAudio();
 }
 
 int main(int argc, char **argv)
