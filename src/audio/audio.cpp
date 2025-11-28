@@ -153,7 +153,7 @@ void loadGameAudio()
 
     Audio::loadMusic("fase1_2D", "assets/audio/easy_joy.ogg");
     Audio::loadMusic("fase2_2D", "assets/audio/happy_adveture.mp3");
-    // Audio::loadMusic("fase3_2D", "assets/audio/fase3_2d.ogg");
+    Audio::loadMusic("fase3_2D", "assets/audio/hold_the_line.ogg");
 
     // // Carrega efeitos sonoros
     // Audio::loadSound("jump", "assets/audio/jump.wav");

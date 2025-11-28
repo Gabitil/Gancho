@@ -683,7 +683,7 @@ void mouseClick(int button, int state, int x, int y)
             {
               case 1: Audio::playMusic("fase1_2D", -1); break;
               case 2: Audio::playMusic("fase2_2D", -1); break;
-              //case 3: Audio::playMusic("fase3_2D", -1); break;
+              case 3: Audio::playMusic("fase3_2D", -1); break;
               default: break;
             }
             glutTimerFunc(16, timer, 0);
