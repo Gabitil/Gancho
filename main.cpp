@@ -572,6 +572,9 @@ void mouseClick(int button, int state, int x, int y)
       {
         currentState = STATE_LEVEL_SELECT_2D;
         reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
+        Audio::stopMusic();
+        Audio::playMusic("tema_menu", -1);
+        Audio::playSound("clickButton");
       }
       else
       {
@@ -594,6 +597,9 @@ void mouseClick(int button, int state, int x, int y)
         exitGame3DMode(); // Sai do modo de jogo 3D para evitar inconsistências de montagem de tela
         currentState = STATE_LEVEL_SELECT_3D;
         reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
+        Audio::stopMusic();
+        Audio::playMusic("tema_menu", -1);
+        Audio::playSound("clickButton");
       }
       else
       {
@@ -612,12 +618,15 @@ void mouseClick(int button, int state, int x, int y)
         switch (selectedMenuOption)
         {
         case 1:
+          Audio::playSound("clickButton");
           currentState = STATE_MENU_2D;
           break;
         case 2:
+          Audio::playSound("clickButton");
           currentState = STATE_MENU_3D;
           break;
         case 3: // Sair
+          Audio::playSound("clickButton");
           glutLeaveMainLoop();
           break;
         }
@@ -628,12 +637,15 @@ void mouseClick(int button, int state, int x, int y)
         switch (selectedMenuOption)
         {
         case 1:
+          Audio::playSound("clickButton");
           currentState = STATE_LEVEL_SELECT_2D;
           break;
         case 2:
+          Audio::playSound("clickButton");
           currentState = STATE_INSTRUCTIONS_2D;
           break;
         case 3:
+          Audio::playSound("clickButton");
           currentState = STATE_MODE_SELECT;
           break;
         }
@@ -644,12 +656,15 @@ void mouseClick(int button, int state, int x, int y)
         switch (selectedMenuOption)
         {
         case 1:
+          Audio::playSound("clickButton");
           currentState = STATE_LEVEL_SELECT_3D;
           break;
         case 2:
+          Audio::playSound("clickButton");
           currentState = STATE_INSTRUCTIONS_3D;
           break;
         case 3:
+          Audio::playSound("clickButton");
           currentState = STATE_MODE_SELECT;
           break;
         }
@@ -658,6 +673,7 @@ void mouseClick(int button, int state, int x, int y)
       case STATE_INSTRUCTIONS_2D:
         if (instrBackButton.hovered)
         {
+          Audio::playSound("clickButton");
           currentState = STATE_MENU_2D;
         }
         break;
@@ -665,6 +681,7 @@ void mouseClick(int button, int state, int x, int y)
       case STATE_INSTRUCTIONS_3D:
         if (instrBackButton.hovered)
         {
+          Audio::playSound("clickButton");
           currentState = STATE_MENU_3D;
         }
         break;
@@ -674,6 +691,7 @@ void mouseClick(int button, int state, int x, int y)
         {
           if (levelButtons[i].hovered && levelButtons[i].enabled)
           {
+            Audio::playSound("clickButton");
             activeLevel_2D = i + 1;
             currentState = STATE_GAME_2D;
             gameStartLevel(activeLevel_2D);
@@ -692,6 +710,7 @@ void mouseClick(int button, int state, int x, int y)
         }
         if (levelSelectBackButton.hovered)
         {
+          Audio::playSound("clickButton");
           currentState = STATE_MENU_2D;
         }
         break;
@@ -701,6 +720,7 @@ void mouseClick(int button, int state, int x, int y)
         {
           if (levelButtons[i].hovered && levelButtons[i].enabled)
           {
+            Audio::playSound("clickButton");
             activeLevel_3D = i + 1;
             currentState = STATE_GAME_3D;
             gameStartLevel_3D(activeLevel_3D);
@@ -721,6 +741,7 @@ void mouseClick(int button, int state, int x, int y)
         }
         if (levelSelectBackButton.hovered)
         {
+          Audio::playSound("clickButton");
           currentState = STATE_MENU_3D;
         }
         break;
@@ -745,9 +766,9 @@ void keyboardDown(unsigned char key, int x, int y)
     if (action == GAME_ACTION_EXIT_TO_MENU)
     {
       currentState = STATE_LEVEL_SELECT_2D;
-      reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
       Audio::stopMusic();
       Audio::playMusic("tema_menu", -1);
+      reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
       glutPostRedisplay();
     }
   }
@@ -764,6 +785,8 @@ void keyboardDown(unsigned char key, int x, int y)
       exitGame3DMode(); // Sai do modo de jogo 3D para evitar inconsistências de montagem de tela
 
       currentState = STATE_LEVEL_SELECT_3D;
+      Audio::stopMusic();
+      Audio::playMusic("tema_menu", -1);
 
       glutMotionFunc(mouseMotion);
       glutPassiveMotionFunc(mouseMotion);
@@ -840,6 +863,8 @@ void timer(int value)
       if (activeLevel_2D == maxLevelUnlocked_2D && maxLevelUnlocked_2D < NUM_LEVELS)
         maxLevelUnlocked_2D++;
       currentState = STATE_LEVEL_SELECT_2D;
+      Audio::stopMusic();
+      Audio::playMusic("tema_menu", -1);
     }
     else // 3D
     {
@@ -848,6 +873,8 @@ void timer(int value)
       if (activeLevel_3D == maxLevelUnlocked_3D && maxLevelUnlocked_3D < NUM_LEVELS)
         maxLevelUnlocked_3D++;
       currentState = STATE_LEVEL_SELECT_3D;
+      Audio::stopMusic();
+      Audio::playMusic("tema_menu", -1);
     }
 
     reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
@@ -862,6 +889,8 @@ void timer(int value)
     // Volta para o menu de seleção de nível correto
     currentState = (originalState == STATE_GAME_2D) ? STATE_LEVEL_SELECT_2D : STATE_LEVEL_SELECT_3D;
     reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
+    Audio::stopMusic();
+    Audio::playMusic("tema_menu", -1);
   }
   else
   {

@@ -156,8 +156,10 @@ void loadGameAudio()
     Audio::loadMusic("fase3_2D", "assets/audio/hold_the_line.ogg");
 
     // // Carrega efeitos sonoros
-    // Audio::loadSound("jump", "assets/audio/jump.wav");
-    // Audio::loadSound("grappling_hook", "assets/audio/grappling_hook.wav");
+    Audio::loadSound("clickButton", "assets/audio/Click_Standard_00.mp3");
+    Audio::loadSound("grappling_hook_push", "assets/audio/whoosh-cinematic-376887.mp3");
+    Audio::loadSound("grappling_hook_attach", "assets/audio/qubodupImpactStone.ogg");
+    Audio::loadSound("grappling_hook_projectile", "assets/audio/swish-1.wav");
     // Audio::loadSound("win_level", "assets/audio/win_level.wav");
     // Audio::loadSound("game_over", "assets/audio/game_over.wav");
 }

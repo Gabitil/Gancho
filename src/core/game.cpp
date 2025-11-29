@@ -19,7 +19,7 @@
 // #include <GL/freeglut.h>
 
 #include "utils.h"
-// #include "audio.h"
+#include "audio.h"
 
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS
@@ -83,6 +83,7 @@ bool isGrounded = false;  // Variável para verificar se o personagem está em
                           // contato com alguma plataforma
 bool isHooked = false;    // Variável para identificar se o personagem está
                           // pendurado em alguma plataforma
+bool wasBeingPulled = false;  // para detectar início do puxão
 bool isHookFiring =
     false;  // Variável para controlar se o gancho está em modo de disparo, ou
             // seja, se ele está em trajetória para se prender em algo
@@ -519,6 +520,17 @@ GameAction gameUpdate() {
       forceTensionX = normX * currentPullForce;
       forceTensionY = normY * currentPullForce;
     }
+
+    bool isBeingPulledNow = (currentPullForce > 0.01f);
+    if (isBeingPulledNow && !wasBeingPulled) {
+      // Início do puxão
+       Audio::playSound("grappling_hook_push", 0);
+    }
+    wasBeingPulled = isBeingPulledNow;
+
+  }
+  else {
+    wasBeingPulled = false; 
   }
 
   /**
@@ -810,6 +822,8 @@ GameAction gameUpdate() {
         ropeLength = sqrt(dx * dx + dy * dy);
         isGrounded = false;
         hit = true;
+
+        Audio::playSound("grappling_hook_attach", 0);
         break;
       }
     }
@@ -1357,6 +1371,10 @@ void gameMouseClick(int button, int state) {
       if (shotsRemaining > 0 && !isHooked && !isHookFiring) {
         isHookFiring = true;
         shotsRemaining--;
+
+        Audio::playSound("grappling_hook_projectile", 0);
+
+
         float playerCenterX = player.x + player.w / 2,
               playerCenterY = player.y + player.h / 2;
         hookProjectileX = playerCenterX;
