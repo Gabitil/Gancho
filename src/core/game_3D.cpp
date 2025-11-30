@@ -15,6 +15,7 @@
 
 #include "game_3D.h"
 #include "game.h"
+#include "audio.h"
 
 // ---------------------------------------------------------------------------------------------------------
 
@@ -883,6 +884,10 @@ GameAction gameUpdate_3D()
     // Controle de vitória e derrota. Análogo ao modo 2D
     if (isGameVictory_3D)
     {
+        if( gameVictoryTimer_3D == 180 ) {
+            Audio::stopMusic();
+            Audio::playSound("win_level", 0);
+        }
         gameVictoryTimer_3D--;
         if (gameVictoryTimer_3D <= 0)
         {
@@ -892,7 +897,11 @@ GameAction gameUpdate_3D()
         return GAME_ACTION_CONTINUE;
     }
     if (isGameOver_3D)
-    {
+    {   
+        if( gameOverTimer_3D == 180 ) {
+            Audio::stopMusic();
+            Audio::playSound("game_over", 0);
+        }
         gameOverTimer_3D--;
         if (gameOverTimer_3D <= 0)
         {

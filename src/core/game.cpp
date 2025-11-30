@@ -456,6 +456,10 @@ void gameReshape(int width, int height) { glViewport(0, 0, width, height); }
  */
 GameAction gameUpdate() {
   if (isGameVictory) {
+    if( gameVictoryTimer == 180 ) {
+      Audio::stopMusic();
+      Audio::playSound("win_level", 0);
+    }
     gameVictoryTimer--;
     if (gameVictoryTimer <= 0) {
       isGameVictory = false;
@@ -465,6 +469,10 @@ GameAction gameUpdate() {
   }
 
   if (isGameOver) {
+    if( gameOverTimer == 180 ) {
+      Audio::stopMusic();
+      Audio::playSound("game_over", 0);
+    }
     gameOverTimer--;
     if (gameOverTimer <= 0) {
       isGameOver = false;
@@ -669,6 +677,7 @@ GameAction gameUpdate() {
     if (checkRectangleCollision(player.x, player.y, player.w, player.h,
                                 riverZone->x, riverZone->y, riverZone->w,
                                 riverZone->h)) {
+      Audio::playSound("splash_water");
       isGameOver = true;
       gameOverTimer = 180;
       return GAME_ACTION_CONTINUE;
@@ -857,7 +866,8 @@ GameAction gameUpdate() {
    * Condição de vitória: Caso o personagem alcançe a porta
    */
   if (checkRectangleCollision(player.x, player.y, player.w, player.h, door.x,
-                              door.y, door.w, door.h)) {
+                              door.y, door.w, door.h)) {                            
+    Audio::playSound("door_open", 0);
     isGameVictory = true;
     gameVictoryTimer = 180;
     return GAME_ACTION_CONTINUE;
