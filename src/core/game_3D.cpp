@@ -363,7 +363,7 @@ void drawVictoryScreen(int w, int h)
 
 /**
  * Desenha a tela de Game Over (Sobreposição Vermelha)
- *  * TODO - alterar a tela de vitória para aplicar as texturas e assets
+ * TODO - alterar a tela de vitória para aplicar as texturas e assets
  */
 void drawGameOverScreen(int w, int h)
 {
@@ -918,6 +918,10 @@ GameAction gameUpdate_3D()
     if (deltaTime > 0.1f)
         deltaTime = 0.1f;
 
+    float prevVelX = player_3D.velocityX;
+    float prevVelY = player_3D.velocityY;
+    float prevVelZ = player_3D.velocityZ;
+
     float prevPositionPlayerX = player_3D.x;
     float prevPositionPlayerY = player_3D.y;
     float prevPositionPlayerZ = player_3D.z;
@@ -1384,6 +1388,26 @@ GameAction gameUpdate_3D()
                 }
             }
         }
+        
+    // --------------------------------------------------------------------------------
+        
+    if (deltaTime > 0.0001f) // Evita divisão por zero
+    {
+        float dvX = player_3D.velocityX - prevVelX;
+        float dvY = player_3D.velocityY - prevVelY;
+        float dvZ = player_3D.velocityZ - prevVelZ;
+
+        // Aceleração vetorial (m/s^2)
+        float ax = dvX / deltaTime;
+        float ay = dvY / deltaTime;
+        float az = dvZ / deltaTime;
+
+        currentAcceleration_3D = sqrt(ax * ax + ay * ay + az * az);
+    }
+    else
+    {
+        currentAcceleration_3D = 0.0f;
+    }    
         
     // --------------------------------------------------------------------------------
 
