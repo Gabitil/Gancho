@@ -1,0 +1,126 @@
+# Blender 5.0.0 MTL File: 'None'
+# www.blender.org
+
+newmtl bag__sling_1
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl bag_dark_gray
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl bag_gray_main
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd C:/Fabric031_2K_Color000.jpg
+map_Ns C:/Fabric031_2K_Roughness.jpg
+
+newmtl bag_leather
+Ka 1.000000 1.000000 1.000000
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Ns C:/Leather001_2K_Roughness.jpg
+
+newmtl bag_metal_1
+Ka 1.000000 1.000000 1.000000
+Ks 0.413636 0.413636 0.413636
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Kd C:/Metal010_2K_Color.jpg
+map_Ns C:/Metal010_2K_Roughness.jpg
+map_refl C:/Metal010_2K_Color000.jpg
+
+newmtl bag_metal_2
+Ka 1.000000 1.000000 1.000000
+Kd 0.761273 0.687042 0.539795
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Ns C:/Metal010_2K_Roughness.jpg
+map_refl C:/Metal010_2K_Color000.jpg
+
+newmtl bag_plate
+Ns 250.000000
+Ka 0.713636 0.713636 0.713636
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Kd C:/HTB1gggeSpXXXXamaXXXq6xXFXXXH.jpg
+
+newmtl bag_rope
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.000000 0.000000 0.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+
+newmtl bag_zipper
+Ns 0.000000
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd C:/istockphoto-920710202-170667a.jpg
+
+newmtl bag_zipper_handle
+Ka 1.000000 1.000000 1.000000
+Kd 0.761273 0.687042 0.539795
+Ks 0.413636 0.413636 0.413636
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Ns C:/Metal010_2K_Roughness.jpg
+map_refl C:/Metal010_2K_Color000.jpg
+
+newmtl bag_zipper_handle_gray
+Ka 1.000000 1.000000 1.000000
+Kd 0.761273 0.687042 0.539795
+Ks 0.413636 0.413636 0.413636
+Ke 0.000000 0.000000 0.000000
+Ni 1.450000
+d 1.000000
+illum 3
+map_Ns C:/Metal010_2K_Roughness.jpg
+map_refl C:/Metal010_2K_Color000.jpg
+
+newmtl skin
+Ns 96.078415
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+map_Kd C:/Users/geovam/Downloads/kenney_animated-characters-2/Skins/skaterMaleA.png

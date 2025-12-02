@@ -1,7 +1,7 @@
 // Define a implementação do STB apenas aqui
 #define STB_IMAGE_IMPLEMENTATION
 
-#include "utils.h" // Traz glew.h e freeglut.h na ordem certa
+#include "utils.h"  // Traz glew.h e freeglut.h na ordem certa
 
 #include <cstdio>
 #include <cmath>
@@ -22,7 +22,8 @@
 // Função para carregar textura usando STB
 GLuint loadTexture(const char* filepath) {
   int width, height, channels;
-  // Carrega a imagem
+
+  // Carrega a imagem (forçando 4 canais = RGBA)
   unsigned char* data = stbi_load(filepath, &width, &height, &channels, 4);
 
   if (!data) {
@@ -36,16 +37,24 @@ GLuint loadTexture(const char* filepath) {
   glBindTexture(GL_TEXTURE_2D, textureID);
 
   // Envia os dados da imagem para o OpenGL
+  // Como forçamos 4 canais no stbi_load, usamos GL_RGBA aqui com segurança
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
                GL_UNSIGNED_BYTE, data);
 
+  // --- MODIFICAÇÃO 2: Gerar Mipmaps ---
+  // Cria versões menores da textura para quando o objeto estiver longe
+  glGenerateMipmap(GL_TEXTURE_2D);
+
   // Define os filtros da textura
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  // MIN_FILTER alterado para usar Mipmap (melhor qualidade à distância)
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                  GL_LINEAR_MIPMAP_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-  // Define como a textura se comporta nas bordas (opcional, mas recomendado)
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  // --- MODIFICAÇÃO 3: Wrapping ---
+  // GL_REPEAT é geralmente melhor para modelos 3D (obj) do que CLAMP
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
   stbi_image_free(data);  // Libera a memória da imagem
 
@@ -53,6 +62,29 @@ GLuint loadTexture(const char* filepath) {
          textureID, width, height);
 
   return textureID;  // Retorna o ID da textura carregada
+}
+
+GLuint loadTexture_3D(const char* filename) {
+  // 1. Configura para INVERTER (necessário para 3D: OpenGL Bottom-Up)
+  stbi_set_flip_vertically_on_load(true);
+
+  // 2. Chama a função principal
+  GLuint textureID = loadTexture(filename);
+
+  // 3. (Opcional, mas recomendado para evitar problemas futuros com texturas
+  // 2D):
+  //    Volta o flip para o estado padrão (Top-Down)
+  stbi_set_flip_vertically_on_load(false);
+
+  return textureID;
+}
+
+// Crie esta função se ainda não o fez, para carregar todas as texturas 2D
+GLuint loadTexture_2D(const char* filename) {
+  // Garante que o flip está DESATIVADO (padrão para 2D: Imagem Top-Down)
+  stbi_set_flip_vertically_on_load(false);
+
+  return loadTexture(filename);
 }
 
 /**
@@ -79,66 +111,64 @@ void drawRect(float initX, float initY, float width, float height, float r,
   }
 }
 
-void drawParallaxLayer(GLuint textureID,
-                       float cameraLeft, float cameraBottom,
-                       float viewW, float viewH,
-                       float parallaxX, float parallaxY,
-                       float tileWorldW, float tileWorldH)
-{
-    if (textureID == 0) return;
+void drawParallaxLayer(GLuint textureID, float cameraLeft, float cameraBottom,
+                       float viewW, float viewH, float parallaxX,
+                       float parallaxY, float tileWorldW, float tileWorldH) {
+  if (textureID == 0) return;
 
-    // Quantos tiles cabem na tela (em coordenadas UV)
-    float uSpan = viewW / tileWorldW;
-    float vSpan = viewH / tileWorldH;
+  // Quantos tiles cabem na tela (em coordenadas UV)
+  float uSpan = viewW / tileWorldW;
+  float vSpan = viewH / tileWorldH;
 
-    // Deslocamento UV conforme movimento da câmera
-    float uOffset = fmodf((cameraLeft * parallaxX) / tileWorldW, 1.0f);
-    float vOffset = fmodf((cameraBottom * parallaxY) / tileWorldH, 1.0f);
-    if (uOffset < 0.0f) uOffset += 1.0f;
-    if (vOffset < 0.0f) vOffset += 1.0f;
+  // Deslocamento UV conforme movimento da câmera
+  float uOffset = fmodf((cameraLeft * parallaxX) / tileWorldW, 1.0f);
+  float vOffset = fmodf((cameraBottom * parallaxY) / tileWorldH, 1.0f);
+  if (uOffset < 0.0f) uOffset += 1.0f;
+  if (vOffset < 0.0f) vOffset += 1.0f;
 
-    float u0 = uOffset;
-    float v0 = vOffset;
-    float u1 = uOffset + uSpan;
-    float v1 = vOffset + vSpan;
+  float u0 = uOffset;
+  float v0 = vOffset;
+  float u1 = uOffset + uSpan;
+  float v1 = vOffset + vSpan;
 
-    // Configuração de textura
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, textureID);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  // Configuração de textura
+  glEnable(GL_TEXTURE_2D);
+  glBindTexture(GL_TEXTURE_2D, textureID);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glColor4f(1, 1, 1, 1);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  glColor4f(1, 1, 1, 1);
 
-    // --- FLIP USANDO MATRIZ ---
-    glPushMatrix();
+  // --- FLIP USANDO MATRIZ ---
+  glPushMatrix();
 
-    // Move para o início da câmera
-    glTranslatef(cameraLeft, cameraBottom + viewH, 0.0f);
+  // Move para o início da câmera
+  glTranslatef(cameraLeft, cameraBottom + viewH, 0.0f);
 
-    // Escala Y negativa: espelha verticalmente
-    glScalef(1.0f, -1.0f, 1.0f);
+  // Escala Y negativa: espelha verticalmente
+  glScalef(1.0f, -1.0f, 1.0f);
 
-    // Agora o quad é desenhado "virado" para o lado certo
-    glBegin(GL_QUADS);
-        glTexCoord2f(u0, v0); glVertex2f(0, 0);
-        glTexCoord2f(u1, v0); glVertex2f(viewW, 0);
-        glTexCoord2f(u1, v1); glVertex2f(viewW, viewH);
-        glTexCoord2f(u0, v1); glVertex2f(0, viewH);
-    glEnd();
+  // Agora o quad é desenhado "virado" para o lado certo
+  glBegin(GL_QUADS);
+  glTexCoord2f(u0, v0);
+  glVertex2f(0, 0);
+  glTexCoord2f(u1, v0);
+  glVertex2f(viewW, 0);
+  glTexCoord2f(u1, v1);
+  glVertex2f(viewW, viewH);
+  glTexCoord2f(u0, v1);
+  glVertex2f(0, viewH);
+  glEnd();
 
-    glPopMatrix();
+  glPopMatrix();
 
-    glDisable(GL_BLEND);
-    glDisable(GL_TEXTURE_2D);
+  glDisable(GL_BLEND);
+  glDisable(GL_TEXTURE_2D);
 }
-
-
-
 
 /**
  * Desenha um retângulo usando uma textura, com repetição (tiling) de UVs.
@@ -159,7 +189,6 @@ void drawRepeatingTexturedRect(float x, float y, float w, float h,
     glEnd();
     return;
   }
-  
 
   // Calcula quantas vezes a textura deve se repetir
   // textureWidth e textureHeight são as dimensões MUNDIAIS da textura base.
@@ -205,8 +234,7 @@ void drawRepeatingTexturedRect(float x, float y, float w, float h,
  * Tela/Menu Y-Down).
  */
 void drawTexturedRect(float x, float y, float w, float h, GLuint textureID,
-                      bool flipH,
-                      bool flipV) { 
+                      bool flipH, bool flipV) {
   if (textureID == 0) return;
 
   glEnable(GL_TEXTURE_2D);
@@ -281,8 +309,7 @@ void drawSpikes(float initX, float initY, float width, float height, float r,
  * padrão, na própria definição da função, quando uma fonte não é escolhida, a
  * fonte usada será a mesma usada no menu.
  */
-void drawText(float x, float y, const char* text,
-              void* font) {
+void drawText(float x, float y, const char* text, void* font) {
   glRasterPos2f(x, y);
   for (const char* c = text; *c; ++c) {
     glutBitmapCharacter(font, *c);
@@ -455,95 +482,99 @@ void drawTextCentered(float cx, float y, const char* text, void* font) {
  * Função auxiliar para desenhar texto em 3D
  */
 void drawText3D(float x, float y, float z, const char* text) {
-    glRasterPos3f(x, y, z);
-    while (*text) {
-        glutBitmapCharacter(GLUT_BITMAP_9_BY_15, *text);
-        text++;
-    }
+  glRasterPos3f(x, y, z);
+  while (*text) {
+    glutBitmapCharacter(GLUT_BITMAP_9_BY_15, *text);
+    text++;
+  }
 }
 
 /**
  * Função responsável por desenhar vetores 3D (Linha + Cone/Ponta + Label).
  * @param start Posição de início do vetor (Ex: centro do player).
  * @param vector Componentes físicas do vetor (velocidade, força, etc.).
- * @param scale Fator de escala visual para traduzir o valor físico em tamanho de mundo.
+ * @param scale Fator de escala visual para traduzir o valor físico em tamanho
+ * de mundo.
  * @param r Cor R (0.0 a 1.0).
  * @param g Cor G (0.0 a 1.0).
  * @param b Cor B (0.0 a 1.0).
  * @param label Nome do vetor para exibição.
  */
-void drawVector_3D(Vector_3D start, Vector_3D vector, float scale, float r, float g, float b, const char* label) {
-    float vx = vector.x * scale;
-    float vy = vector.y * scale;
-    float vz = vector.z * scale;
-    float len = sqrt(vx*vx + vy*vy + vz*vz);
+void drawVector_3D(Vector_3D start, Vector_3D vector, float scale, float r,
+                   float g, float b, const char* label) {
+  float vx = vector.x * scale;
+  float vy = vector.y * scale;
+  float vz = vector.z * scale;
+  float len = sqrt(vx * vx + vy * vy + vz * vz);
 
-    if (len < 0.1f) return; // Muito pequeno
+  if (len < 0.1f) return;  // Muito pequeno
 
-    Vector_3D end = {start.x + vx, start.y + vy, start.z + vz};
+  Vector_3D end = {start.x + vx, start.y + vy, start.z + vz};
 
-    glDisable(GL_LIGHTING);
-    glLineWidth(2.0f);
-    glColor3f(r, g, b);
+  glDisable(GL_LIGHTING);
+  glLineWidth(2.0f);
+  glColor3f(r, g, b);
 
-    glBegin(GL_LINES);
-        glVertex3f(start.x, start.y, start.z);
-        glVertex3f(end.x, end.y, end.z);
-    glEnd();
+  glBegin(GL_LINES);
+  glVertex3f(start.x, start.y, start.z);
+  glVertex3f(end.x, end.y, end.z);
+  glEnd();
 
-    glPushMatrix();
-        glTranslatef(end.x, end.y, end.z);
+  glPushMatrix();
+  glTranslatef(end.x, end.y, end.z);
 
-        // O glutSolidCone aponta para +Z por padrão.
-        float yaw = atan2(vx, vz) * 180.0f / M_PI;
-        float pitch = -atan2(vy, sqrt(vx*vx + vz*vz)) * 180.0f / M_PI; // Negativo pois Y é up
+  // O glutSolidCone aponta para +Z por padrão.
+  float yaw = atan2(vx, vz) * 180.0f / M_PI;
+  float pitch = -atan2(vy, sqrt(vx * vx + vz * vz)) * 180.0f /
+                M_PI;  // Negativo pois Y é up
 
-        glRotatef(yaw, 0, 1, 0); 
-        glRotatef(pitch, 1, 0, 0); // Inclina para cima/baixo
+  glRotatef(yaw, 0, 1, 0);
+  glRotatef(pitch, 1, 0, 0);  // Inclina para cima/baixo
 
-        glutSolidCone(0.2f, 0.5f, 8, 2);
-    glPopMatrix();
+  glutSolidCone(0.2f, 0.5f, 8, 2);
+  glPopMatrix();
 
-    if (label) {
-        glDisable(GL_DEPTH_TEST); // Texto sempre visível
-        glColor3f(1, 1, 1);
-        glRasterPos3f(end.x, end.y + 0.2f, end.z);
-        while (*label) {
-            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *label);
-            label++;
-        }
-        glEnable(GL_DEPTH_TEST);
+  if (label) {
+    glDisable(GL_DEPTH_TEST);  // Texto sempre visível
+    glColor3f(1, 1, 1);
+    glRasterPos3f(end.x, end.y + 0.2f, end.z);
+    while (*label) {
+      glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *label);
+      label++;
     }
+    glEnable(GL_DEPTH_TEST);
+  }
 
-    glEnable(GL_LIGHTING);
+  glEnable(GL_LIGHTING);
 }
 
 // Verifica se dois objetos 3D (Box) colidem (AABB - Axis Aligned Bounding Box)
-bool checkAABBCollision(float x1, float y1, float z1, float w1, float h1, float d1,
-                        float x2, float y2, float z2, float w2, float h2, float d2) {
-    return (x1 < x2 + w2 && x1 + w1 > x2 &&
-            y1 < y2 + h2 && y1 + h1 > y2 &&
-            z1 < z2 + d2 && z1 + d1 > z2);
+bool checkAABBCollision(float x1, float y1, float z1, float w1, float h1,
+                        float d1, float x2, float y2, float z2, float w2,
+                        float h2, float d2) {
+  return (x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2 &&
+          z1 < z2 + d2 && z1 + d1 > z2);
 }
 
 // Verifica se um ponto está dentro de uma caixa 3D
-bool isPointInsideBox(float px, float py, float pz, 
-                      float x, float y, float z, float w, float h, float d) {
-    return (px >= x && px <= x + w &&
-            py >= y && py <= y + h &&
-            pz >= z && pz <= z + d);
+bool isPointInsideBox(float px, float py, float pz, float x, float y, float z,
+                      float w, float h, float d) {
+  return (px >= x && px <= x + w && py >= y && py <= y + h && pz >= z &&
+          pz <= z + d);
 }
 
 /**
- * Interseção de segmento de reta com caixa (Simplificada para o Gancho) 
+ * Interseção de segmento de reta com caixa (Simplificada para o Gancho)
  * Retorna true se bateu e preenche hitX, hitY, hitZ (usamos para debug)
  */
-bool lineBoxIntersection(float x1, float y1, float z1, 
-                         float x2, float y2, float z2, 
-                         Platform_3D p, float& hX, float& hY, float& hZ) {
-    if (isPointInsideBox(x2, y2, z2, p.x, p.y, p.z, p.w, p.h, p.d)) {
-        hX = x2; hY = y2; hZ = z2;
-        return true;
-    }
-    return false;
+bool lineBoxIntersection(float x1, float y1, float z1, float x2, float y2,
+                         float z2, Platform_3D p, float& hX, float& hY,
+                         float& hZ) {
+  if (isPointInsideBox(x2, y2, z2, p.x, p.y, p.z, p.w, p.h, p.d)) {
+    hX = x2;
+    hY = y2;
+    hZ = z2;
+    return true;
+  }
+  return false;
 }

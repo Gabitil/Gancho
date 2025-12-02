@@ -75,7 +75,7 @@ BIN_DIR = bin
 
 # Define ONDE estão os arquivos .cpp
 # Adicione '.' se o main.cpp estiver na raiz, caso contrário, remova.
-SRC_DIRS := . src/core src/ui src/util src/audio
+SRC_DIRS := . src/core src/ui src/util src/audio src/gfx
 
 # pega todos os .cpp dessas pastas
 SOURCES := $(foreach d,$(SRC_DIRS),$(wildcard $(d)/*.cpp))

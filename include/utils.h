@@ -282,6 +282,8 @@ void drawTextCentered(float cx, float y, const char* text, void* font);
  * - O chamador é responsável por libertar a textura com glDeleteTextures quando não for mais necessária.
  */
 GLuint loadTexture(const char* filepath);
+GLuint loadTexture_2D(const char* filepath);
+GLuint loadTexture_3D(const char* filepath);
 
 /**
  * @brief Desenha um retângulo texturizado 2D.

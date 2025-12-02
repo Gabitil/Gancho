@@ -13,16 +13,18 @@
 
 // Headers ".h"
 #include "game.h"
-#include "mesh_utils.h"
-#include "utils.h"
 #include "game_structs.h"
+#include "mesh_utils.h"
+#include "player_anims.h"
+#include "utils.h"
 
 // Bibliotecas padrão
 #include <stdio.h>
-#include <string>
-#include <cmath>
-#include <vector>
+
 #include <algorithm>
+#include <cmath>
+#include <string>
+#include <vector>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -30,6 +32,7 @@
 
 void gameInit_3D();
 void gameStartLevel_3D(int level);
+void loadEnvironmentModels(int level);
 GameAction gameUpdate_3D();
 void gameDisplay_3D();
 void gameReshape_3D(int w, int h);
@@ -40,7 +43,8 @@ void gameKeyUp_3D(unsigned char key, int x, int y);
 void gameSpecialDown_3D(int key, int x, int y);
 void gameSpecialUp_3D(int key, int x, int y);
 void loadGameTextures_3D();
-
+void carregaOBJemTris(const std::string& caminho, std::vector<tri>& out);
+extern bool isGrappling_3D;
 extern bool isMouseFree_3D;
 
 #endif
