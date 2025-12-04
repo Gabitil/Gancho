@@ -48,6 +48,7 @@ struct Platform_3D {
     float r, g, b;
     bool isHookable;
     float frictionCoefficient;
+    bool isSolid;  // Se true, bloqueia passagem de todos os lados (como parede)
 };
 
 struct WindZone_3D {

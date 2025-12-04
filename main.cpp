@@ -344,36 +344,43 @@ void drawGameHUD_3D() { drawGameHUD_2D(); }
  * função display para 2D, mas agora com mais verificações de estado
  */
 void display() {
-  glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
-
   switch (currentState) {
     case STATE_MODE_SELECT:
+      glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
       renderMenu(modeSelectButtons, NUM_MODE_SELECT_BUTTONS);
       break;
     case STATE_MENU_2D:
+      glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
       renderMenu(menu2DButtons, NUM_SUB_MENU_BUTTONS);
       break;
     case STATE_MENU_3D:
+      glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
       renderMenu(menu3DButtons, NUM_SUB_MENU_BUTTONS);
       break;
     case STATE_INSTRUCTIONS_2D:
+      glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
       renderInstructions_2D();
       break;
     case STATE_INSTRUCTIONS_3D:
+      glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
       renderInstructions_3D();
       break;
     case STATE_LEVEL_SELECT_2D:
+      glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
       renderLevelSelect_2D();
       break;
     case STATE_LEVEL_SELECT_3D:
+      glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
       renderLevelSelect_3D();
       break;
     case STATE_GAME_2D:
+      glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
       gameDisplay();
       drawGameHUD_2D();
       glutSwapBuffers();
       break;
     case STATE_GAME_3D:
+      // Não define glClearColor aqui - deixa o gameStartLevel_3D controlar a cor do céu
       gameDisplay_3D();
       drawGameHUD_3D();
       glutSwapBuffers();

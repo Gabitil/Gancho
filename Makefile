@@ -67,7 +67,7 @@
 CXX = g++
 # Define onde o compilador deve procurar arquivos de cabeçalho (.h)
 # Adicionamos -Isrc/core, -Isrc/ui, e -Isrc/util para que os includes funcionem
-CXXFLAGS = -I. -Iinclude -Isrc/core -Isrc/ui -Isrc/util -Isrc/audio -g -Wall -std=c++17 -DGLEW_STATIC
+CXXFLAGS = -I. -Iinclude -Isrc/core -Isrc/ui -Isrc/util -Isrc/audio -Isrc/decorations -g -Wall -std=c++17 -DGLEW_STATIC
 LDFLAGS =
 
 OBJ_DIR = obj
@@ -75,7 +75,7 @@ BIN_DIR = bin
 
 # Define ONDE estão os arquivos .cpp
 # Adicione '.' se o main.cpp estiver na raiz, caso contrário, remova.
-SRC_DIRS := . src/core src/ui src/util src/audio src/gfx
+SRC_DIRS := . src/core src/ui src/util src/audio src/gfx src/decorations
 
 # pega todos os .cpp dessas pastas
 SOURCES := $(foreach d,$(SRC_DIRS),$(wildcard $(d)/*.cpp))

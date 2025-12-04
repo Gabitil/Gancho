@@ -23,6 +23,7 @@
 #include "game_3D.h"
 
 #include "audio.h"
+#include "decorations.h"
 #include "game.h"
 
 // ---------------------------------------------------------------------------------------------------------
@@ -35,9 +36,9 @@ const float VIEW_WIDTH_3D = 800.0f;
 const float VIEW_HEIGHT_3D = 600.0f;
 
 // O mundo agora é um volume
-const float WORLD_WIDTH_3D = 3000.0f;
+const float WORLD_WIDTH_3D = 800.0f;
 const float WORLD_HEIGHT_3D = 600.0f;
-const float WORLD_DEPTH_3D = 1000.0f;
+const float WORLD_DEPTH_3D = 800.0f;
 
 const float DEATH_BOUNDARY_Y_3D = -100.0f;
 
@@ -159,7 +160,7 @@ float cameraDistance = 30.0f;  // Distância da câmera ao jogador
 // Variáveis de Display List (Chão Grade)
 GLuint floorListID = 0;
 const float WORLD_SIZE = 100.0f;  // Tamanho visual da grade
-const float FLOOR_Y = 0.0f;
+const float FLOOR_Y = -100.0f;  // Chão visual na mesma altura do game over
 
 int lastMouseX_3D = 0;
 int lastMouseY_3D = 0;
@@ -250,6 +251,7 @@ GLuint platformTextureID = 0;
 GLuint wallTextureID = 0;
 GLuint doorTextureID = 0;
 GLuint spikeTextureID = 0;
+GLuint decorationTextureID = 0;  // Textura para objetos decorativos (colormap.png)
 
 GLuint playerTexture = 0;      // ID da textura do player
 float playerRotationY = 0.0f;  // Rotação do player em graus
@@ -260,8 +262,26 @@ VBO_Info doorVBO = {0, 0};
 VBO_Info envWallVBO = {0, 0};
 VBO_Info envSpikeVBO = {0, 0};
 
+// VBOs para novos elementos de cena
+VBO_Info blockLargeVBO = {0, 0};     // Corredor (substitui plataforma do corredor)
+VBO_Info blockTallVBO = {0, 0};      // Plataformas onde o player gruda
+VBO_Info blockHexagonVBO = {0, 0};   // Decoração
+VBO_Info flowersVBO = {0, 0};        // Decoração
+VBO_Info plantVBO = {0, 0};          // Decoração
+VBO_Info rocksVBO = {0, 0};          // Decoração
+VBO_Info treePineVBO = {0, 0};       // Decoração
+VBO_Info treeVBO = {0, 0};           // Decoração
+
+// Vetores para armazenar posições de objetos decorativos
+std::vector<DecoObject> hexagons_3D;
+std::vector<DecoObject> flowers_3D;
+std::vector<DecoObject> plants_3D;
+std::vector<DecoObject> rocks_3D;
+std::vector<DecoObject> pines_3D;
+std::vector<DecoObject> trees_3D;
+
 // Cor do material do chão por nível (R, G, B)
-float floorColor[3] = {0.1f, 0.5f, 0.1f};
+float floorColor[3] = {0.4f, 0.25f, 0.15f};  // Marrom terra para levels 1 e 2
 
 // Variáveis de Controle de Animação
 PlayerAnimState currentPlayerAnimState = ANIM_IDLE;
@@ -407,15 +427,16 @@ void loadEnvironmentModels(int level) {
     return true;
   };
 
-  // Carrega floor.obj (chão) - prefer level, depois global
-  if (!tryLoadSingleOBJ("floor.obj", floorVBO, levelDir)) {
-    // garante zeros se falhar
+  // Desabilita o carregamento de floor.obj para usar cor sólida
+  // Se habilitado, carrega floor.obj (chão) - prefer level, depois global
+  // if (!tryLoadSingleOBJ("floor.obj", floorVBO, levelDir)) {
+    // garante zeros se falhar - força uso da grade colorida
     floorVBO.vboID = 0;
     floorVBO.triCount = 0;
-  } else {
-    printf("Modelo floor.obj carregado (VBO=%u, tris=%d)\n", floorVBO.vboID,
-           floorVBO.triCount);
-  }
+  // } else {
+  //   printf("Modelo floor.obj carregado (VBO=%u, tris=%d)\n", floorVBO.vboID,
+  //          floorVBO.triCount);
+  // }
 
   // Carrega door.obj (porta)
   if (!tryLoadSingleOBJ("door.obj", doorVBO, levelDir)) {
@@ -473,35 +494,101 @@ void loadEnvironmentModels(int level) {
           tmp.vboID, tmp.triCount);
     }
   }
+
+  // --- Carrega modelos de decoração ambiental ---
+  
+  // block-large.obj (corredor sólido)
+  if (!tryLoadSingleOBJ("block-large.obj", blockLargeVBO, levelDir)) {
+    blockLargeVBO.vboID = 0;
+    blockLargeVBO.triCount = 0;
+  } else {
+    printf("Modelo block-large.obj carregado (VBO=%u, tris=%d)\n", 
+           blockLargeVBO.vboID, blockLargeVBO.triCount);
+  }
+
+  // block-tall.obj (parede de grappling)
+  if (!tryLoadSingleOBJ("block-tall.obj", blockTallVBO, levelDir)) {
+    blockTallVBO.vboID = 0;
+    blockTallVBO.triCount = 0;
+  } else {
+    printf("Modelo block-tall.obj carregado (VBO=%u, tris=%d)\n", 
+           blockTallVBO.vboID, blockTallVBO.triCount);
+  }
+
+  // block-hexagon.obj (decoração)
+  if (!tryLoadSingleOBJ("block-hexagon.obj", blockHexagonVBO, levelDir)) {
+    blockHexagonVBO.vboID = 0;
+    blockHexagonVBO.triCount = 0;
+  } else {
+    printf("Modelo block-hexagon.obj carregado (VBO=%u, tris=%d)\n", 
+           blockHexagonVBO.vboID, blockHexagonVBO.triCount);
+  }
+
+  // flowers.obj (decoração)
+  if (!tryLoadSingleOBJ("flowers.obj", flowersVBO, levelDir)) {
+    flowersVBO.vboID = 0;
+    flowersVBO.triCount = 0;
+  } else {
+    printf("Modelo flowers.obj carregado (VBO=%u, tris=%d)\n", 
+           flowersVBO.vboID, flowersVBO.triCount);
+  }
+
+  // plant.obj (decoração)
+  if (!tryLoadSingleOBJ("plant.obj", plantVBO, levelDir)) {
+    plantVBO.vboID = 0;
+    plantVBO.triCount = 0;
+  } else {
+    printf("Modelo plant.obj carregado (VBO=%u, tris=%d)\n", 
+           plantVBO.vboID, plantVBO.triCount);
+  }
+
+  // rocks.obj (decoração)
+  if (!tryLoadSingleOBJ("rocks.obj", rocksVBO, levelDir)) {
+    rocksVBO.vboID = 0;
+    rocksVBO.triCount = 0;
+  } else {
+    printf("Modelo rocks.obj carregado (VBO=%u, tris=%d)\n", 
+           rocksVBO.vboID, rocksVBO.triCount);
+  }
+
+  // tree-pine.obj (decoração)
+  if (!tryLoadSingleOBJ("tree-pine.obj", treePineVBO, levelDir)) {
+    treePineVBO.vboID = 0;
+    treePineVBO.triCount = 0;
+  } else {
+    printf("Modelo tree-pine.obj carregado (VBO=%u, tris=%d)\n", 
+           treePineVBO.vboID, treePineVBO.triCount);
+  }
+
+  // tree.obj (decoração)
+  if (!tryLoadSingleOBJ("tree.obj", treeVBO, levelDir)) {
+    treeVBO.vboID = 0;
+    treeVBO.triCount = 0;
+  } else {
+    printf("Modelo tree.obj carregado (VBO=%u, tris=%d)\n", 
+           treeVBO.vboID, treeVBO.triCount);
+  }
 }
 
 /**
- * Cria a grade do chão para ajudar na visualização da movimentação. Usado
- * apenas para debug
- * TODO - remover essa visualização para aplicação de texturas, serve apenas
- * para ver a física
+ * Cria a grade do chão para ajudar na visualização da movimentação.
+ * Agora usa um plano sólido que respeita a cor de material (floorColor)
  */
 void createWorldDisplayLists() {
   if (floorListID != 0) glDeleteLists(floorListID, 1);
 
   floorListID = glGenLists(1);
   glNewList(floorListID, GL_COMPILE);
-  glDisable(GL_LIGHTING);
-  glLineWidth(1.0f);
-
-  glColor3f(1.0f, 1.0f, 1.0f);
-
-  glBegin(GL_LINES);
-  for (float i = -WORLD_SIZE; i <= WORLD_SIZE; i += 2.0f) {
-    glVertex3f(i, FLOOR_Y, -WORLD_SIZE);
-    glVertex3f(i, FLOOR_Y, WORLD_SIZE);
-  }
-  for (float i = -WORLD_SIZE; i <= WORLD_SIZE; i += 2.0f) {
-    glVertex3f(-WORLD_SIZE, FLOOR_Y, i);
-    glVertex3f(WORLD_SIZE, FLOOR_Y, i);
-  }
+  
+  // Desenha um plano sólido que respeita o material/iluminação
+  glBegin(GL_QUADS);
+  glNormal3f(0.0f, 1.0f, 0.0f);  // Normal apontando para cima
+  glVertex3f(-1.0f, 0.0f, -1.0f);
+  glVertex3f(1.0f, 0.0f, -1.0f);
+  glVertex3f(1.0f, 0.0f, 1.0f);
+  glVertex3f(-1.0f, 0.0f, 1.0f);
   glEnd();
-  glEnable(GL_LIGHTING);
+  
   glEndList();
 }
 
@@ -927,17 +1014,17 @@ void gameStartLevel_3D(int level) {
     floorColor[1] = 0.3f;
     floorColor[2] = 0.3f;  // cinza escuro
   } else if (level == 2) {
-    // Dia claro (neve)
+    // Dia claro (floresta)
     glClearColor(0.5f, 0.7f, 1.0f, 1.0f);
     floorColor[0] = 0.9f;
     floorColor[1] = 0.9f;
     floorColor[2] = 0.9f;  // branco
   } else {
-    // Level 1 e padrão: dia/grama
+    // Level 1 e padrão: dia/floresta
     glClearColor(0.5f, 0.7f, 1.0f, 1.0f);
-    floorColor[0] = 0.1f;
-    floorColor[1] = 0.5f;
-    floorColor[2] = 0.1f;  // verde
+    floorColor[0] = 0.55f;
+    floorColor[1] = 0.35f;
+    floorColor[2] = 0.2f;  // marrom terra mais claro
   }
 
   player_3D.velocityX = 0.0f;
@@ -992,67 +1079,336 @@ void gameStartLevel_3D(int level) {
 
   switch (level) {
     case 1:
-      // Parâmetros Físicos da fase
+      // ========== LEVEL 1: Campo de Treinamento - Corredor Verde ==========
       levelParameters_3D.playerMass = 10.0f;
       levelParameters_3D.playerWalkAccel = 60.0f;
       levelParameters_3D.maxWalkSpeed = 15.0f;
       levelParameters_3D.maxPlayerSpeed = 40.0f;
-      levelParameters_3D.maxHookLength = 100.0f;
+      levelParameters_3D.maxHookLength = 150.0f;
       levelParameters_3D.vectorVisualScale = 0.04f;
       levelParameters_3D.gravity = 25.0f;
       levelParameters_3D.hookSpeed = 150.0f;
-      levelParameters_3D.maxShots = 15;
+      levelParameters_3D.maxShots = 20;
       levelParameters_3D.maxPullStrengthPhysics = 150.0f;
       levelParameters_3D.dampingFactor = 0.995f;
       levelParameters_3D.aimConvergenceDist = 40.0f;
 
-      // Chão
-      platforms_3D.push_back({-WORLD_WIDTH_3D / 2, -5.0f, -WORLD_DEPTH_3D / 2,
-                              WORLD_WIDTH_3D, 5.0f, WORLD_DEPTH_3D, 0.3f, 0.3f,
-                              0.3f, true, 0.8f});
+      // CHÃO - Corredor comprido no eixo Z (0 a 500) - SÓLIDO para evitar atravessar com grappler
+      platforms_3D.push_back({-25.0f, 0.0f, 400.0f,
+                              40.0f, 1.0f, 200.0f, 
+                              0.2f, 0.6f, 0.2f, true, 0.8f, true});  // isSolid = true
 
-      // Parede atrás
-      platforms_3D.push_back({-10.0f, 0.0f, -20.0f, 20.0f, 15.0f, 5.0f, 0.6f,
-                              0.6f, 0.7f, true, 0.5f});
+      // PLATAFORMA DE SPAWN INICIAL
+      platforms_3D.push_back({-5.0f, 0.0f, 5.0f,
+                              12.0f, 4.0f, 12.0f, 
+                              0.3f, 0.7f, 0.3f, true, 0.9f, false});  // isSolid = false
 
-      // Paredes flutuantes na frente
-      platforms_3D.push_back(
-          {0.0f, 0.0f, 15.0f, 5.0f, 4.0f, 5.0f, 0.5f, 0.5f, 0.8f, true, 0.5f});
-      platforms_3D.push_back(
-          {0.0f, 4.0f, 35.0f, 5.0f, 8.0f, 5.0f, 0.5f, 0.5f, 0.8f, true, 0.5f});
-      platforms_3D.push_back(
-          {0.0f, 6.0f, 65.0f, 8.0f, 2.0f, 8.0f, 0.5f, 0.5f, 0.8f, true, 0.5f});
 
-      // "Caverna" para teste do gancho
-      platforms_3D.push_back({-25.0f, 0.0f, 80.0f, 5.0f, 40.0f, 60.0f, 0.4f,
-                              0.4f, 0.4f, true, 0.3f});  // Esq
-      platforms_3D.push_back({25.0f, 0.0f, 80.0f, 5.0f, 40.0f, 60.0f, 0.4f,
-                              0.4f, 0.4f, true, 0.3f});  // Dir
-      platforms_3D.push_back({-25.0f, 35.0f, 80.0f, 55.0f, 2.0f, 60.0f, 0.7f,
-                              0.7f, 0.7f, true, 0.3f});
+      // PLATAFORMAS SUSPENSAS (progressão ao longo do corredor Z)
+      // Apenas plataforma de spawn - outras removidas e substituídas por paredes
 
-      // Espinhos dentro da caverna
-      spikeZones_3D.push_back({-20.0f, 0.1f, 80.0f, 45.0f, 1.0f, 60.0f});
+      // PAREDES MENORES PARA GRAPPLING (substituindo plataformas)
+      // Parede 1 
+      platforms_3D.push_back({-10.0f, 5.0f, 50.0f, 
+                              8.0f, 8.0f, 8.0f, 
+                              0.5f, 0.5f, 0.8f, true, 0.5f, false});
 
-      // Parede quebrável
-      platforms_3D.push_back({-10.0f, 6.0f, 150.0f, 20.0f, 2.0f, 20.0f, 0.5f,
-                              0.5f, 0.8f, true, 0.5f});  // Plataforma de pouso
-      breakableWalls_3D.push_back({-5.0f, 8.0f, 160.0f, 10.0f, 10.0f, 2.0f,
-                                   0.8f, 0.4f, 0.1f, 400.0f,
-                                   false});  // Parede Frágil
+      // Parede 2 
+      platforms_3D.push_back({20.0f, 5.0f, 150.0f, 
+                              8.0f, 8.0f, 8.0f, 
+                              0.5f, 0.5f, 0.8f, true, 0.5f, false});
 
-      // Porta
-      door_3D.x = 0.0f;
-      door_3D.y = 8.0f;
-      door_3D.z = 180.0f;
-      door_3D.w = 4.0f;
-      door_3D.h = 6.0f;
+      // Parede 3
+      platforms_3D.push_back({-8.0f, 10.0f, 240.0f, 
+                              8.0f, 8.0f, 8.0f, 
+                              0.5f, 0.5f, 0.8f, true, 0.5f, false});
+
+      // Parede 4
+      platforms_3D.push_back({-15.0f, 8.0f, 320.0f, 
+                              8.0f, 8.0f, 8.0f, 
+                              0.6f, 0.6f, 0.7f, true, 0.5f, false});
+
+      // OBSTÁCULOS
+      // Spikes no chão (zona 1)
+      spikeZones_3D.push_back({-5.0f, 0.1f, 100.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({-10.0f, 0.1f, 100.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({-5.0f, 0.1f, 105.0f, 
+                               10.0f, 7.0f, 10.0f});                               
+      spikeZones_3D.push_back({-10.0f, 0.1f, 105.0f, 
+                               10.0f, 7.0f, 10.0f}); 
+
+      // Spikes no chão (zona 2)
+      spikeZones_3D.push_back({0.0f, 0.1f, 210.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({5.0f, 0.1f, 210.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({0.0f, 0.1f, 215.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({5.0f, 0.1f, 215.0f, 
+                               10.0f, 7.0f, 10.0f});
+
+      // Parede 5
+      platforms_3D.push_back({-10.0f, 20.0f, 420.0f, 
+                              8.0f, 8.0f, 8.0f, 
+                              0.5f, 0.5f, 0.8f, true, 0.5f, false});
+      // Parede quebrável 1
+      // breakableWalls_3D.push_back({-25.0f, -5.0f, 420.0f, 
+      //                              40.0f, 12.0f, 3.0f,
+      //                              0.8f, 0.4f, 0.1f, 300.0f, false});
+
+      // PORTA no final do corredor
+      door_3D.x = -10.0f;
+      door_3D.y = -8.0f;
+      door_3D.z = 500.0f;
+      door_3D.w = 15.0f;
+      door_3D.h = 18.0f;
       door_3D.d = 4.0f;
 
-      // Posição inicial do jogador
+      // Posição inicial do jogador (no chão, início do corredor)
       player_3D.x = 0.0f;
-      player_3D.y = 2.0f;
-      player_3D.z = 0.0f;
+      player_3D.y = 3.0f;  // Em cima da plataforma de spawn (h=2.0) + altura do jogador (h=2.0)
+      player_3D.z = 10.0f;
+      break;
+
+    case 2:
+      // ========== LEVEL 2: Corredor de Gelo - Desafiador ==========
+      levelParameters_3D.playerMass = 10.0f;
+      levelParameters_3D.playerWalkAccel = 55.0f;
+      levelParameters_3D.maxWalkSpeed = 17.0f;
+      levelParameters_3D.maxPlayerSpeed = 42.0f;
+      levelParameters_3D.maxHookLength = 350.0f;
+      levelParameters_3D.vectorVisualScale = 0.04f;
+      levelParameters_3D.gravity = 28.0f;
+      levelParameters_3D.hookSpeed = 160.0f;
+      levelParameters_3D.maxShots = 18;
+      levelParameters_3D.maxPullStrengthPhysics = 165.0f;
+      levelParameters_3D.dampingFactor = 0.992f;
+      levelParameters_3D.aimConvergenceDist = 45.0f;
+
+      // CHÃO - Corredor comprido no eixo Z (0 a 600) - SÓLIDO
+      platforms_3D.push_back({-25.0f, 0.0f, 425.0f,
+                              40.0f, 1.0f, 200.0f, 
+                              0.7f, 0.8f, 0.85f, true, 0.4f, true});  // isSolid = true (gelo escorregadio)
+
+      // PLATAFORMA DE SPAWN INICIAL
+      platforms_3D.push_back({-5.0f, 0.0f, 5.0f,
+                              12.0f, 4.0f, 12.0f, 
+                              0.75f, 0.8f, 0.85f, true, 0.9f, false});
+
+      // PAREDES MENORES PARA GRAPPLING (progressão ao longo do corredor)
+      // Parede 1
+      platforms_3D.push_back({-12.0f, 10.0f, 90.0f, 
+                              9.0f, 9.0f, 9.0f, 
+                              0.6f, 0.65f, 0.75f, true, 0.4f, false});
+
+      // Parede 2 
+      platforms_3D.push_back({18.0f, 7.0f, 160.0f, 
+                              9.0f, 9.0f, 9.0f, 
+                              0.6f, 0.65f, 0.75f, true, 0.4f, false});
+
+      // Parede 3
+      platforms_3D.push_back({-10.0f, 12.0f, 250.0f, 
+                              9.0f, 9.0f, 9.0f, 
+                              0.6f, 0.65f, 0.75f, true, 0.4f, false});
+
+      // Parede 4
+      platforms_3D.push_back({-18.0f, 10.0f, 340.0f, 
+                              9.0f, 9.0f, 9.0f, 
+                              0.65f, 0.7f, 0.8f, true, 0.4f, false});
+
+      // Parede 5
+      platforms_3D.push_back({15.0f, 15.0f, 420.0f, 
+                              9.0f, 9.0f, 9.0f, 
+                              0.6f, 0.65f, 0.75f, true, 0.4f, false});
+
+      // Parede 6 (mais alta)
+      platforms_3D.push_back({-8.0f, 20.0f, 490.0f, 
+                              9.0f, 9.0f, 9.0f, 
+                              0.6f, 0.65f, 0.75f, true, 0.4f, false});
+
+      // OBSTÁCULOS
+      // Spikes no chão (zona 1)
+      spikeZones_3D.push_back({-8.0f, 0.1f, 120.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({-13.0f, 0.1f, 120.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({-8.0f, 0.1f, 125.0f, 
+                               10.0f, 7.0f, 10.0f});                               
+      spikeZones_3D.push_back({-13.0f, 0.1f, 125.0f, 
+                               10.0f, 7.0f, 10.0f}); 
+
+      // Spikes no chão (zona 2)
+      spikeZones_3D.push_back({2.0f, 0.1f, 280.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({7.0f, 0.1f, 280.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({2.0f, 0.1f, 285.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({7.0f, 0.1f, 285.0f, 
+                               10.0f, 7.0f, 10.0f});
+
+      // Spikes no chão (zona 3 - mais perigosa)
+      spikeZones_3D.push_back({-10.0f, 0.1f, 370.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({-5.0f, 0.1f, 370.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({0.0f, 0.1f, 370.0f, 
+                               10.0f, 7.0f, 10.0f});
+
+      // Parede 7 (antes da porta)
+      platforms_3D.push_back({8.0f, 25.0f, 560.0f, 
+                              9.0f, 9.0f, 9.0f, 
+                              0.6f, 0.65f, 0.75f, true, 0.4f, false});
+
+      // Parede quebrável 1
+      breakableWalls_3D.push_back({-20.0f, -5.0f, 550.0f, 
+                                   40.0f, 15.0f, 3.0f,
+                                   0.8f, 0.5f, 0.2f, 350.0f, false});
+
+      // PORTA no final do corredor
+      door_3D.x = -10.0f;
+      door_3D.y = -5.0f;
+      door_3D.z = 600.0f;
+      door_3D.w = 15.0f;
+      door_3D.h = 15.0f;
+      door_3D.d = 4.0f;
+
+      player_3D.x = 0.0f;
+      player_3D.y = 3.0f;  // Em cima da plataforma de spawn (h=2.0) + altura do jogador (h=2.0)
+      player_3D.z = 10.0f;
+      break;
+
+    case 3:
+      // ========== LEVEL 3: Estação Espacial - Máximo Desafio ==========
+      levelParameters_3D.playerMass = 10.0f;
+      levelParameters_3D.playerWalkAccel = 50.0f;
+      levelParameters_3D.maxWalkSpeed = 18.0f;
+      levelParameters_3D.maxPlayerSpeed = 48.0f;
+      levelParameters_3D.maxHookLength = 400.0f;
+      levelParameters_3D.vectorVisualScale = 0.04f;
+      levelParameters_3D.gravity = 22.0f;
+      levelParameters_3D.hookSpeed = 170.0f;
+      levelParameters_3D.maxShots = 16;
+      levelParameters_3D.maxPullStrengthPhysics = 180.0f;
+      levelParameters_3D.dampingFactor = 0.990f;
+      levelParameters_3D.aimConvergenceDist = 50.0f;
+
+      // CHÃO - Corredor comprido no eixo Z (0 a 800) - SÓLIDO
+      platforms_3D.push_back({-25.0f, 0.0f, 525.0f,
+                              40.0f, 1.0f, 250.0f, 
+                              0.25f, 0.25f, 0.3f, true, 0.7f, true});  // isSolid = true
+
+      // PLATAFORMA DE SPAWN INICIAL
+      platforms_3D.push_back({-5.0f, 0.0f, 5.0f,
+                              12.0f, 4.0f, 12.0f, 
+                              0.35f, 0.35f, 0.4f, true, 0.9f, false});
+
+      // PAREDES MENORES PARA GRAPPLING (circuito longo e desafiador)
+      // Seção 1 - Início
+      platforms_3D.push_back({-14.0f, 12.0f, 100.0f, 
+                              10.0f, 10.0f, 10.0f, 
+                              0.4f, 0.4f, 0.5f, true, 0.5f, false});
+
+      platforms_3D.push_back({20.0f, 9.0f, 180.0f, 
+                              10.0f, 10.0f, 10.0f, 
+                              0.4f, 0.4f, 0.5f, true, 0.5f, false});
+
+      // Seção 2 - Elevação progressiva
+      platforms_3D.push_back({-12.0f, 15.0f, 270.0f, 
+                              10.0f, 10.0f, 10.0f, 
+                              0.4f, 0.4f, 0.5f, true, 0.5f, false});
+
+      platforms_3D.push_back({-20.0f, 12.0f, 360.0f, 
+                              10.0f, 10.0f, 10.0f, 
+                              0.45f, 0.45f, 0.55f, true, 0.5f, false});
+
+      platforms_3D.push_back({18.0f, 18.0f, 450.0f, 
+                              10.0f, 10.0f, 10.0f, 
+                              0.4f, 0.4f, 0.5f, true, 0.5f, false});
+
+      // Seção 3 - Desafio máximo
+      platforms_3D.push_back({-10.0f, 25.0f, 530.0f, 
+                              10.0f, 10.0f, 10.0f, 
+                              0.4f, 0.4f, 0.5f, true, 0.5f, false});
+
+      platforms_3D.push_back({15.0f, 22.0f, 610.0f, 
+                              10.0f, 10.0f, 10.0f, 
+                              0.4f, 0.4f, 0.5f, true, 0.5f, false});
+
+      platforms_3D.push_back({-8.0f, 30.0f, 690.0f, 
+                              10.0f, 10.0f, 10.0f, 
+                              0.4f, 0.4f, 0.5f, true, 0.5f, false});
+
+      // Parede 9 (mais alta, antes da porta)
+      platforms_3D.push_back({10.0f, 35.0f, 750.0f, 
+                              10.0f, 10.0f, 10.0f, 
+                              0.4f, 0.4f, 0.5f, true, 0.5f, false});
+
+      // OBSTÁCULOS
+      // Spikes no chão (zona 1)
+      spikeZones_3D.push_back({-10.0f, 0.1f, 140.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({-15.0f, 0.1f, 140.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({-10.0f, 0.1f, 145.0f, 
+                               10.0f, 7.0f, 10.0f});                               
+      spikeZones_3D.push_back({-15.0f, 0.1f, 145.0f, 
+                               10.0f, 7.0f, 10.0f}); 
+
+      // Spikes no chão (zona 2)
+      spikeZones_3D.push_back({5.0f, 0.1f, 310.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({10.0f, 0.1f, 310.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({5.0f, 0.1f, 315.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({10.0f, 0.1f, 315.0f, 
+                               10.0f, 7.0f, 10.0f});
+
+      // Spikes no chão (zona 3)
+      spikeZones_3D.push_back({-12.0f, 0.1f, 490.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({-7.0f, 0.1f, 490.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({-2.0f, 0.1f, 490.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({3.0f, 0.1f, 490.0f, 
+                               10.0f, 7.0f, 10.0f});
+
+      // Spikes no chão (zona 4 - área extensa)
+      spikeZones_3D.push_back({-8.0f, 0.1f, 650.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({-3.0f, 0.1f, 650.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({2.0f, 0.1f, 650.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({-8.0f, 0.1f, 655.0f, 
+                               10.0f, 7.0f, 10.0f});
+      spikeZones_3D.push_back({-3.0f, 0.1f, 655.0f, 
+                               10.0f, 7.0f, 10.0f});
+
+      // Paredes quebráveis (2 para tornar mais desafiador)
+      breakableWalls_3D.push_back({-25.0f, -5.0f, 580.0f, 
+                                   40.0f, 18.0f, 3.0f,
+                                   0.7f, 0.35f, 0.15f, 400.0f, false});
+
+      breakableWalls_3D.push_back({-25.0f, -5.0f, 720.0f, 
+                                   40.0f, 20.0f, 3.0f,
+                                   0.7f, 0.35f, 0.15f, 450.0f, false});
+
+      // PORTA no final do corredor (mais alta)
+      door_3D.x = -10.0f;
+      door_3D.y = -5.0f;
+      door_3D.z = 790.0f;
+      door_3D.w = 15.0f;
+      door_3D.h = 15.0f;
+      door_3D.d = 4.0f;
+
+      player_3D.x = 0.0f;
+      player_3D.y = 3.0f;  // Em cima da plataforma de spawn (h=2.0) + altura do jogador (h=2.0)
+      player_3D.z = 10.0f;
       break;
 
     default:
@@ -1078,6 +1434,21 @@ void gameStartLevel_3D(int level) {
   else
     collidingPlatform_3D = NULL;
 
+  // --- DECORAÇÕES AMBIENTAIS (populadas após definir plataformas) ---
+  hexagons_3D.clear();
+  flowers_3D.clear();
+  plants_3D.clear();
+  rocks_3D.clear();
+  pines_3D.clear();
+  trees_3D.clear();
+
+  if (level == 1) {
+    loadLevel1Decorations(hexagons_3D, flowers_3D, plants_3D, rocks_3D, pines_3D, trees_3D);
+  } else if (level == 2) {
+    loadLevel2Decorations(hexagons_3D, flowers_3D, plants_3D, rocks_3D, pines_3D, trees_3D);
+  } else if (level == 3) {
+    loadLevel3Decorations(hexagons_3D, flowers_3D, plants_3D, rocks_3D, pines_3D, trees_3D);
+  }
   createWorldDisplayLists();
   createLevelVBOs();
   loadEnvironmentModels(level);  // Carrega modelos OBJ de ambiente (substitui
@@ -1169,79 +1540,83 @@ GameAction gameUpdate_3D() {
   if (requestHookRelease_3D) {
     requestHookRelease_3D = false;
 
+    // Se já estava grudado, apenas solta e dispara novo gancho
     if (isHooked_3D) {
       isHooked_3D = false;
       isGrounded_3D = false;
-      printf("UPDATE: Soltou do gancho.\n");
-    } else {
-      if (shotsRemaining_3D > 0) {
-        isHookFiring_3D = true;
-        isChargingHook_3D = false;
+      printf("UPDATE: Soltou do gancho anterior.\n");
+    }
+    
+    // Dispara novo gancho
+    if (shotsRemaining_3D > 0) {
+      isHookFiring_3D = true;
+      isChargingHook_3D = false;
 
-        shotsRemaining_3D--;
+      shotsRemaining_3D--;
 
-        printf("UPDATE: DISPARO CONFIRMADO! Forca: %.1f. Restam: %d\n",
-               currentChargeForce_3D, shotsRemaining_3D);
+      printf("UPDATE: DISPARO CONFIRMADO! Forca: %.1f. Restam: %d\n",
+             currentChargeForce_3D, shotsRemaining_3D);
 
-        /**
-         * Assim como explicado no cabeçalho, esse foi o cálculo que escolhemos
-         * usar para definir onde o gancho iria atirar. Não conseguimos fazer
-         * isso ser dinâmico a depender da distância que estava olhando,
-         * portanto, fixamos uma distância de "tiro ótimo"
-         */
+      /**
+       * Assim como explicado no cabeçalho, esse foi o cálculo que escolhemos
+       * usar para definir onde o gancho iria atirar. Não conseguimos fazer
+       * isso ser dinâmico a depender da distância que estava olhando,
+       * portanto, fixamos uma distância de "tiro ótimo"
+       */
 
-        // ------------------------------------------------------------
+      // ------------------------------------------------------------
 
-        float fireYawRad = cameraYaw_3D * M_PI / 180.0f;
-        float firePitchRad = aimPitch_3D * M_PI / 180.0f;
+      float fireYawRad = cameraYaw_3D * M_PI / 180.0f;
+      float firePitchRad = aimPitch_3D * M_PI / 180.0f;
 
-        // Direção da mira para onde o olho (câmera) está olhando
-        float dirX = -sin(fireYawRad) * cos(firePitchRad);
-        float dirY = -sin(firePitchRad);
-        float dirZ = -cos(fireYawRad) * cos(firePitchRad);
+      // Direção da mira para onde o olho (câmera) está olhando
+      float dirX = -sin(fireYawRad) * cos(firePitchRad);
+      float dirY = -sin(firePitchRad);
+      float dirZ = -cos(fireYawRad) * cos(firePitchRad);
 
-        // Recalcula posição exata da câmera para garantir sincronia
-        float camRadPitch = cameraPitch_3D * M_PI / 180.0f;
-        float camRadYaw = cameraYaw_3D * M_PI / 180.0f;
+      // Recalcula posição exata da câmera para garantir sincronia
+      float camRadPitch = cameraPitch_3D * M_PI / 180.0f;
+      float camRadYaw = cameraYaw_3D * M_PI / 180.0f;
 
-        float camX = pCx + cameraDistance * cos(camRadPitch) * sin(camRadYaw);
-        float camY =
-            pCy + (player_3D.h / 2.0f) + cameraDistance * sin(camRadPitch);
-        float camZ = pCz + cameraDistance * cos(camRadPitch) * cos(camRadYaw);
+      float camX = pCx + cameraDistance * cos(camRadPitch) * sin(camRadYaw);
+      float camY =
+          pCy + (player_3D.h / 2.0f) + cameraDistance * sin(camRadPitch);
+      float camZ = pCz + cameraDistance * cos(camRadPitch) * cos(camRadYaw);
 
-        float aimRadPitch = aimPitch_3D * M_PI / 180.0f;
-        float aimRadYaw = cameraYaw_3D * M_PI / 180.0f;
+      float aimRadPitch = aimPitch_3D * M_PI / 180.0f;
+      float aimRadYaw = cameraYaw_3D * M_PI / 180.0f;
 
-        float dirViewX = -sin(aimRadYaw) * cos(aimRadPitch);
-        float dirViewY = -sin(aimRadPitch);
-        float dirViewZ = -cos(aimRadYaw) * cos(aimRadPitch);
+      float dirViewX = -sin(aimRadYaw) * cos(aimRadPitch);
+      float dirViewY = -sin(aimRadPitch);
+      float dirViewZ = -cos(aimRadYaw) * cos(aimRadPitch);
 
-        float dist = levelParameters_3D.aimConvergenceDist;
-        float targetX = camX + (dirViewX * dist);
-        float targetY = camY + (dirViewY * dist);
-        float targetZ = camZ + (dirViewZ * dist);
+      float dist = levelParameters_3D.aimConvergenceDist;
+      float targetX = camX + (dirViewX * dist);
+      float targetY = camY + (dirViewY * dist);
+      float targetZ = camZ + (dirViewZ * dist);
 
-        float spawnDist = 1.5f;
-        hookProjectileX_3D = pCx + (dirViewX * spawnDist);
-        hookProjectileY_3D =
-            pCy + (player_3D.h * 0.6f) + (dirViewY * spawnDist);
-        hookProjectileZ_3D = pCz + (dirViewZ * spawnDist);
+      // Ajusta o ponto de origem do gancho para a altura do centro do personagem
+      float spawnDist = 1.5f;
+      hookProjectileX_3D = pCx + (dirViewX * spawnDist);
+      hookProjectileY_3D = pCy + (dirViewY * spawnDist);
+      hookProjectileZ_3D = pCz + (dirViewZ * spawnDist);
 
-        float vecX = targetX - hookProjectileX_3D;
-        float vecY = targetY - hookProjectileY_3D;
-        float vecZ = targetZ - hookProjectileZ_3D;
+      // Ajusta o destino para mirar mais alto (compensa diferença entre centro do personagem e linha de visão)
+      float heightOffset = player_3D.h * 1.3f; // Offset para sincronizar com a mira visual
+      float vecX = targetX - hookProjectileX_3D;
+      float vecY = (targetY + heightOffset) - hookProjectileY_3D;
+      float vecZ = targetZ - hookProjectileZ_3D;
 
-        float len = sqrt(vecX * vecX + vecY * vecY + vecZ * vecZ);
-        hookProjectileVelX_3D = (vecX / len) * levelParameters_3D.hookSpeed;
-        hookProjectileVelY_3D = (vecY / len) * levelParameters_3D.hookSpeed;
-        hookProjectileVelZ_3D = (vecZ / len) * levelParameters_3D.hookSpeed;
+      float len = sqrt(vecX * vecX + vecY * vecY + vecZ * vecZ);
+      hookProjectileVelX_3D = (vecX / len) * levelParameters_3D.hookSpeed;
+      hookProjectileVelY_3D = (vecY / len) * levelParameters_3D.hookSpeed;
+      hookProjectileVelZ_3D = (vecZ / len) * levelParameters_3D.hookSpeed;
 
-        // ------------------------------------------------------------
+      // ------------------------------------------------------------
 
-        float forceFactor = currentChargeForce_3D / MAX_AIM_FORCE_DISPLAY_3D;
-        currentPullForce_3D =
-            forceFactor * levelParameters_3D.maxPullStrengthPhysics;
-      }
+      float forceFactor = currentChargeForce_3D / MAX_AIM_FORCE_DISPLAY_3D;
+      currentPullForce_3D =
+          forceFactor * levelParameters_3D.maxPullStrengthPhysics;
     }
   }
 
@@ -1259,26 +1634,27 @@ GameAction gameUpdate_3D() {
     float distOriginSq = pow(hookProjectileX_3D - pCx, 2) +
                          pow(hookProjectileY_3D - pCy, 2) +
                          pow(hookProjectileZ_3D - pCz, 2);
+    float distOrigin = sqrt(distOriginSq);
 
     if (distOriginSq >
         levelParameters_3D.maxHookLength * levelParameters_3D.maxHookLength) {
       isHookFiring_3D = false;
-      printf("FIM DE CURSO: Gancho nao alcancou nada.\n");
+      printf("FIM DE CURSO: Gancho nao alcancou nada. Dist: %.1f, Max: %.1f\n", 
+             distOrigin, levelParameters_3D.maxHookLength);
     } else {
       for (auto& p : platforms_3D) {
         /**
          * Um problema persistente foi o de atirar para cima e o gancho se
-         * prender no chão. Para contornar isso, ignoramos a plataforma que o
-         * jogador está encostando
+         * prender no chão. Para contornar isso, ignoramos APENAS a plataforma
+         * onde o jogador está pisando (collidingPlatform_3D).
+         * Removida a verificação de AABB expandida que impedia grudar em
+         * plataformas próximas verticalmente.
          */
-        if (checkAABBCollision(player_3D.x - 0.5f, player_3D.y - 0.5f,
-                               player_3D.z - 0.5f, player_3D.w + 1.0f,
-                               player_3D.h + 1.0f, player_3D.d + 1.0f, p.x, p.y,
-                               p.z, p.w, p.h, p.d)) {
+        if (collidingPlatform_3D != NULL && &p == collidingPlatform_3D) {
           continue;
         }
 
-        if (p.isHookable && p.frictionCoefficient > 0.001f) {
+        if (p.isHookable) {
           float hX, hY, hZ;
           if (lineBoxIntersection(prevHX, prevHY, prevHZ, hookProjectileX_3D,
                                   hookProjectileY_3D, hookProjectileZ_3D, p, hX,
@@ -1362,11 +1738,25 @@ GameAction gameUpdate_3D() {
       }
     }
 
-    // Resistência do ar para não balançar no gancho eternamente
-    float airDamping = 0.99f;
-    player_3D.velocityX *= airDamping;
-    player_3D.velocityY *= airDamping;
-    player_3D.velocityZ *= airDamping;
+    // AUTO-GRUDAMENTO: Se chegou muito perto do ponto de hook, gruda e zera velocidade
+    const float SNAP_DISTANCE = 3.0f;  // Distância para "grudar" automaticamente
+    if (currDist < SNAP_DISTANCE) {
+      // Zera todas as velocidades para parar de balançar
+      player_3D.velocityX = 0.0f;
+      player_3D.velocityY = 0.0f;
+      player_3D.velocityZ = 0.0f;
+      
+      // Opcional: posiciona exatamente no ponto de hook (comentado para permitir pequeno movimento)
+      player_3D.x = hookPointX_3D - player_3D.w / 2.0f;
+      player_3D.y = hookPointY_3D - player_3D.h;
+      player_3D.z = hookPointZ_3D - player_3D.d / 2.0f;
+    } else {
+      // Resistência do ar para não balançar no gancho eternamente (só aplica se ainda longe)
+      float airDamping = 0.95f;  // Aumentado de 0.99 para 0.95 (mais forte)
+      player_3D.velocityX *= airDamping;
+      player_3D.velocityY *= airDamping;
+      player_3D.velocityZ *= airDamping;
+    }
   }
 
   // Movimentação no chão (em contato com alguma plataforma). Análogo ao 2D
@@ -1581,14 +1971,28 @@ GameAction gameUpdate_3D() {
     if (checkAABBCollision(player_3D.x, player_3D.y, player_3D.z, player_3D.w,
                            player_3D.h, player_3D.d, p.x, p.y, p.z, p.w, p.h,
                            p.d)) {
-      if (player_3D.velocityY <= 0) {
-        player_3D.y = p.y + p.h;
-        player_3D.velocityY = 0;
-        isGrounded_3D = true;
-        collidingPlatform_3D = &p;
-      } else if (player_3D.velocityY > 0) {
-        player_3D.y = p.y - player_3D.h - epsilon;
-        player_3D.velocityY = 0;
+      if (p.isSolid) {
+        // Plataforma sólida: bloqueia de cima E de baixo (como parede)
+        if (player_3D.velocityY <= 0) {
+          player_3D.y = p.y + p.h;
+          player_3D.velocityY = 0;
+          isGrounded_3D = true;
+          collidingPlatform_3D = &p;
+        } else {
+          player_3D.y = p.y - player_3D.h - epsilon;
+          player_3D.velocityY = 0;
+        }
+      } else {
+        // Plataforma normal: só bloqueia queda de cima
+        if (player_3D.velocityY <= 0) {
+          player_3D.y = p.y + p.h;
+          player_3D.velocityY = 0;
+          isGrounded_3D = true;
+          collidingPlatform_3D = &p;
+        } else if (player_3D.velocityY > 0) {
+          player_3D.y = p.y - player_3D.h - epsilon;
+          player_3D.velocityY = 0;
+        }
       }
     }
   }
@@ -1721,26 +2125,21 @@ void gameDisplay_3D() {
 
   // 1) Floor (obj) if available - aplica cor de material do chão e escala
   glPushMatrix();
-  // Posiciona o chão na altura correta: usa a altura da primeira plataforma se
-  // disponível
+  // Posiciona o chão na altura definida em FLOOR_Y (altura do game over)
   float floorDrawY = FLOOR_Y;
-  if (!platforms_3D.empty()) floorDrawY = platforms_3D[0].y;
   glTranslatef(0.0f, floorDrawY, 0.0f);
   // Escala para cobrir a área do mundo (modelo assumido ~1 unidade)
   float floorScaleX = WORLD_WIDTH_3D;
   float floorScaleZ = WORLD_DEPTH_3D;
   glScalef(floorScaleX, 1.0f, floorScaleZ);
-  // Aplica cor de material (GL_COLOR_MATERIAL deve usar essa cor). Se houver
-  // textura de plataforma, a textura será usada; caso contrário aplicamos
-  // material diretamente para que o chão tenha cor.
+  // Aplica cor de material (GL_COLOR_MATERIAL deve usar essa cor).
+  // O chão sempre usa cor sólida definida em floorColor (sem textura)
   GLfloat matDiff[4] = {floorColor[0], floorColor[1], floorColor[2], 1.0f};
   glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, matDiff);
   if (floorVBO.vboID != 0 && floorVBO.triCount > 0) {
-    if (platformTextureID == 0) {
-      // força cor se não houver textura
-      glColor3f(floorColor[0], floorColor[1], floorColor[2]);
-    }
-    drawSingleVBO(floorVBO, platformTextureID);
+    // Sempre força cor sólida no chão (sem textura)
+    glColor3f(floorColor[0], floorColor[1], floorColor[2]);
+    drawSingleVBO(floorVBO, 0);  // Passa 0 para não usar textura
   } else {
     // Se estivermos desenhando a grade de debug, mantemos a escala e cor
     glColor3f(floorColor[0], floorColor[1], floorColor[2]);
@@ -1772,17 +2171,46 @@ void gameDisplay_3D() {
     }
   };
 
-  // Desenho das plataformas: se houver um único modelo platforms.obj carregado
-  // (platformVBOs.size()==1) reaplicamos esse modelo para cada plataforma
+  // Desenho das plataformas: usa modelos específicos baseados no tipo
+  // - Corredor sólido (isSolid=true): block-large
+  // - Plataformas de grappling (isHookable=true, não é plataforma de spawn): block-tall
+  // - Plataforma de spawn e outras: platform.obj padrão
   if (platformVBOs.size() == 1 && platformVBOs[0].vboID != 0) {
     const auto& modelInfo = platformVBOs[0];
-    for (const auto& p : platforms_3D) {
+    for (size_t i = 0; i < platforms_3D.size(); ++i) {
+      const auto& p = platforms_3D[i];
       glPushMatrix();
-      glTranslatef(p.x + p.w / 2.0f, p.y, p.z + p.d / 2.0f);
-      glScalef(p.w, p.h, p.d);
-      if (platformTextureID != 0) {
-        drawSingleVBO(modelInfo, platformTextureID);
+      // Centraliza o modelo na plataforma (assumindo modelo OBJ vai de -0.5 a 0.5)
+      glTranslatef(p.x + p.w / 2.0f, p.y + p.h / 2.0f, p.z + p.d / 2.0f);
+      
+      // Seleciona modelo apropriado:
+      // - Índice 0 (corredor sólido) = block-large
+      // - Índice 1 (plataforma de spawn) = platform padrão com cor verde
+      // - Índices 2+ (paredes de grappling) = block-tall
+      if (i == 0 && blockLargeVBO.vboID != 0) {
+        // Corredor sólido usa block-large com textura
+        // block-large vai de ~-1.041 a 1.041 (2.082 total)
+        glScalef(p.w / 2.082f, p.h / 2.0f, p.d / 2.082f);
+        drawSingleVBO(blockLargeVBO, platformTextureID);
+      } else if (i == 1) {
+        // Plataforma de spawn usa modelo padrão com cor verde original
+        glScalef(p.w, p.h, p.d);
+        if (platformTextureID != 0) {
+          drawSingleVBO(modelInfo, platformTextureID);
+        } else {
+          glColor3f(p.r, p.g, p.b);
+          drawSingleVBO(modelInfo, 0);
+        }
+      } else if (i > 1 && blockTallVBO.vboID != 0) {
+        // Paredes de grappling usam block-tall com textura
+        // block-tall vai de ~-1.041 a 1.041 em X/Z (2.082 total) e 0 a 2 em Y
+        // IMPORTANTE: Como block-tall vai de 0 a 2 (não -1 a 1), ajustamos a translação Y
+        glTranslatef(0.0f, -p.h / 2.0f, 0.0f);  // Desce modelo para alinhar com hitbox
+        glScalef(p.w / 2.082f, p.h / 2.0f, p.d / 2.082f);
+        drawSingleVBO(blockTallVBO, platformTextureID);
       } else {
+        // Fallback: usa modelo padrão com cor
+        glScalef(p.w, p.h, p.d);
         glColor3f(p.r, p.g, p.b);
         drawSingleVBO(modelInfo, 0);
       }
@@ -1841,7 +2269,8 @@ void gameDisplay_3D() {
     for (const auto& w : breakableWalls_3D) {
       if (w.isBroken) continue;
       glPushMatrix();
-      glTranslatef(w.x + w.w / 2.0f, w.y, w.z + w.d / 2.0f);
+      // Centraliza o modelo na parede
+      glTranslatef(w.x + w.w / 2.0f, w.y + w.h / 2.0f, w.z + w.d / 2.0f);
       glScalef(w.w, w.h, w.d);
       drawSingleVBO(envWallVBO, wallTextureID);
       glPopMatrix();
@@ -1946,6 +2375,41 @@ void gameDisplay_3D() {
   glPopMatrix();
 
   // Após desenhar a porta, desligamos os client states usados para VBOs
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+  glDisableClientState(GL_VERTEX_ARRAY);
+  glDisableClientState(GL_COLOR_ARRAY);
+  glDisableClientState(GL_NORMAL_ARRAY);
+
+  // --- DECORAÇÕES AMBIENTAIS ---
+  // Ativa client states novamente para desenhar decorações
+  glEnableClientState(GL_VERTEX_ARRAY);
+  glEnableClientState(GL_COLOR_ARRAY);
+  glEnableClientState(GL_NORMAL_ARRAY);
+  glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+
+  // Helper lambda para desenhar múltiplas instâncias de um modelo
+  auto drawDecorations = [&](const std::vector<DecoObject>& decos, const VBO_Info& vbo) {
+    if (vbo.vboID == 0 || vbo.triCount == 0) return;
+    for (const auto& deco : decos) {
+      glPushMatrix();
+      glTranslatef(deco.x, deco.y, deco.z);
+      glRotatef(deco.rotationY, 0.0f, 1.0f, 0.0f);
+      glScalef(deco.scale, deco.scale, deco.scale);
+      drawSingleVBO(vbo, decorationTextureID);  // Aplica textura colormap.png
+      glPopMatrix();
+    }
+  };
+
+  // Desenha cada tipo de decoração
+  drawDecorations(hexagons_3D, blockHexagonVBO);
+  drawDecorations(flowers_3D, flowersVBO);
+  drawDecorations(plants_3D, plantVBO);
+  drawDecorations(rocks_3D, rocksVBO);
+  drawDecorations(pines_3D, treePineVBO);
+  drawDecorations(trees_3D, treeVBO);
+
+  // Desliga client states após decorações
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glDisableClientState(GL_TEXTURE_COORD_ARRAY);
   glDisableClientState(GL_VERTEX_ARRAY);
@@ -2325,15 +2789,20 @@ void gameMouseClick_3D(int button, int state) {
   if (button == GLUT_LEFT_BUTTON) {
     if (state == GLUT_DOWN) {
       // Inicia carregamento da força do gancho
-      if (!isHooked_3D && !isHookFiring_3D && shotsRemaining_3D > 0) {
+      // Permite disparar mesmo quando grudado - vai soltar automaticamente
+      if (!isHookFiring_3D && shotsRemaining_3D > 0) {
         isChargingHook_3D = true;
         chargeStartTime_3D = glutGet(GLUT_ELAPSED_TIME);
         currentChargeForce_3D = 0.0f;
         chargePercentage_3D = 0.0f;
-        printf("MOUSE DOWN: Carregando...\n");
+        if (isHooked_3D) {
+          printf("MOUSE DOWN: Carregando (vai soltar do gancho atual)...\n");
+        } else {
+          printf("MOUSE DOWN: Carregando...\n");
+        }
       } else {
-        printf("MOUSE DOWN: Bloqueado (Preso=%d, Voando=%d, Tiros=%d)\n",
-               isHooked_3D, isHookFiring_3D, shotsRemaining_3D);
+        printf("MOUSE DOWN: Bloqueado (Voando=%d, Tiros=%d)\n",
+               isHookFiring_3D, shotsRemaining_3D);
       }
     } else if (state == GLUT_UP) {
       // Finaliza o carregamento e solicita disparo do gancho
@@ -2461,6 +2930,7 @@ void loadGameTextures_3D() {
   wallTextureID = loadTexture_3D("assets/images/level1/colormap.png");
   doorTextureID = loadTexture_3D("assets/images/level1/colormap.png");
   spikeTextureID = loadTexture_3D("assets/images/level1/colormap.png");
+  decorationTextureID = loadTexture_3D("assets/images/level1/colormap.png");  // Textura para decorações
 
   // 3. Carregar os 5 OBJs de Corrida
   for (int i = 0; i < 5; ++i) {

@@ -564,17 +564,76 @@ bool isPointInsideBox(float px, float py, float pz, float x, float y, float z,
 }
 
 /**
- * Interseção de segmento de reta com caixa (Simplificada para o Gancho)
- * Retorna true se bateu e preenche hitX, hitY, hitZ (usamos para debug)
+ * Interseção de segmento de reta com caixa (Ray-AABB Intersection)
+ * Retorna true se bateu e preenche hitX, hitY, hitZ com o ponto de intersecção
+ * Usa algoritmo slab method para detecção precisa
  */
 bool lineBoxIntersection(float x1, float y1, float z1, float x2, float y2,
                          float z2, Platform_3D p, float& hX, float& hY,
                          float& hZ) {
-  if (isPointInsideBox(x2, y2, z2, p.x, p.y, p.z, p.w, p.h, p.d)) {
-    hX = x2;
-    hY = y2;
-    hZ = z2;
-    return true;
+  // Direção do raio (não normalizado)
+  float dx = x2 - x1;
+  float dy = y2 - y1;
+  float dz = z2 - z1;
+  
+  // Limites da caixa
+  float minX = p.x;
+  float maxX = p.x + p.w;
+  float minY = p.y;
+  float maxY = p.y + p.h;
+  float minZ = p.z;
+  float maxZ = p.z + p.d;
+  
+  // Slab method - calcula t de entrada e saída em cada eixo
+  float tmin = 0.0f;
+  float tmax = 1.0f;  // Normalizado para o segmento [0,1]
+  
+  // Eixo X
+  if (fabs(dx) > 0.0001f) {
+    float tx1 = (minX - x1) / dx;
+    float tx2 = (maxX - x1) / dx;
+    if (tx1 > tx2) { float tmp = tx1; tx1 = tx2; tx2 = tmp; }
+    tmin = (tx1 > tmin) ? tx1 : tmin;
+    tmax = (tx2 < tmax) ? tx2 : tmax;
+    if (tmin > tmax) return false;
+  } else {
+    // Raio paralelo ao eixo X
+    if (x1 < minX || x1 > maxX) return false;
   }
-  return false;
+  
+  // Eixo Y
+  if (fabs(dy) > 0.0001f) {
+    float ty1 = (minY - y1) / dy;
+    float ty2 = (maxY - y1) / dy;
+    if (ty1 > ty2) { float tmp = ty1; ty1 = ty2; ty2 = tmp; }
+    tmin = (ty1 > tmin) ? ty1 : tmin;
+    tmax = (ty2 < tmax) ? ty2 : tmax;
+    if (tmin > tmax) return false;
+  } else {
+    // Raio paralelo ao eixo Y
+    if (y1 < minY || y1 > maxY) return false;
+  }
+  
+  // Eixo Z
+  if (fabs(dz) > 0.0001f) {
+    float tz1 = (minZ - z1) / dz;
+    float tz2 = (maxZ - z1) / dz;
+    if (tz1 > tz2) { float tmp = tz1; tz1 = tz2; tz2 = tmp; }
+    tmin = (tz1 > tmin) ? tz1 : tmin;
+    tmax = (tz2 < tmax) ? tz2 : tmax;
+    if (tmin > tmax) return false;
+  } else {
+    // Raio paralelo ao eixo Z
+    if (z1 < minZ || z1 > maxZ) return false;
+  }
+  
+  // Se chegou aqui, houve intersecção
+  // Usa tmin para pegar o primeiro ponto de contato
+  float t = (tmin > 0.0f) ? tmin : tmax;
+  
+  hX = x1 + t * dx;
+  hY = y1 + t * dy;
+  hZ = z1 + t * dz;
+  
+  return true;
 }
