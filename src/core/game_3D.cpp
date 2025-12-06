@@ -156,6 +156,8 @@ bool mouseInitialized_3D =
     false;  // Controle interno para evitar pulo no primeiro frame
 
 float cameraDistance = 30.0f;  // Distância da câmera ao jogador
+// Variavel do Audio
+bool hasPlayedPullSound_3D = false;
 
 // Variáveis de Display List (Chão Grade)
 GLuint floorListID = 0;
@@ -1565,6 +1567,7 @@ GameAction gameUpdate_3D() {
     if (isHooked_3D) {
       isHooked_3D = false;
       isGrounded_3D = false;
+      hasPlayedPullSound_3D = false;
       printf("UPDATE: Soltou do gancho anterior.\n");
     }
     
@@ -1573,6 +1576,7 @@ GameAction gameUpdate_3D() {
       isHookFiring_3D = true;
       isChargingHook_3D = false;
 
+      Audio::playSound("grappling_hook_projectile", 0);
       shotsRemaining_3D--;
 
       printf("UPDATE: DISPARO CONFIRMADO! Forca: %.1f. Restam: %d\n",
@@ -1697,6 +1701,7 @@ GameAction gameUpdate_3D() {
             // Código de colisão confirmada análogo ao 2D
             isHookFiring_3D = false;
             isHooked_3D = true;
+            Audio::playSound("grappling_hook_attach", 0);
             hookPointX_3D = hX;
             hookPointY_3D = hY;
             hookPointZ_3D = hZ;
@@ -1719,12 +1724,20 @@ GameAction gameUpdate_3D() {
     float vecY = hookPointY_3D - pCy;
     float vecZ = hookPointZ_3D - pCz;
     float currDist = sqrt(vecX * vecX + vecY * vecY + vecZ * vecZ);
+    float normX = 0.0f;
+    float normY = 0.0f;
+    float normZ = 0.0f;
+
+    if (!hasPlayedPullSound_3D && currDist > ropeLength_3D + 0.2f) {
+      Audio::playSound("grappling_hook_push", 0);
+      hasPlayedPullSound_3D = true;
+    }
 
     if (currDist > 0.1f) {
       // Direção normalizada
-      float normX = vecX / currDist;
-      float normY = vecY / currDist;
-      float normZ = vecZ / currDist;
+      normX = vecX / currDist;
+      normY = vecY / currDist;
+      normZ = vecZ / currDist;
 
       // Adiciona aceleração na direção do gancho baseada na carga e na
       // constante de aceleração definida na fase

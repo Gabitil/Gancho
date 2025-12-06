@@ -155,6 +155,10 @@ void loadGameAudio()
     Audio::loadMusic("fase2_2D", "assets/audio/happy_adveture.mp3");
     Audio::loadMusic("fase3_2D", "assets/audio/hold_the_line.ogg");
 
+    Audio::loadMusic("fase1_3D", "assets/audio/LivelyMeadowVictoryandSongLoopA.wav");
+    Audio::loadMusic("fase2_3D", "assets/audio/WindsOfStories.mp3");
+    Audio::loadMusic("fase3_3D", "assets/audio/DarkDescent.mp3");
+
     // // Carrega efeitos sonoros
     Audio::loadSound("clickButton", "assets/audio/Click_Standard_00.mp3");
     Audio::loadSound("grappling_hook_push", "assets/audio/swish-1.wav");

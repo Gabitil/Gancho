@@ -67,7 +67,7 @@
 CXX = g++
 # Define onde o compilador deve procurar arquivos de cabeçalho (.h)
 # Adicionamos -Isrc/core, -Isrc/ui, e -Isrc/util para que os includes funcionem
-CXXFLAGS = -I. -Iinclude -Isrc/core -Isrc/ui -Isrc/util -Isrc/audio -Isrc/decorations -g -Wall -std=c++17 -DGLEW_STATIC
+CXXFLAGS = -O3 -I. -Iinclude -Isrc/core -Isrc/ui -Isrc/util -Isrc/audio -Isrc/decorations -g -Wall -std=c++17 -DGLEW_STATIC
 LDFLAGS =
 
 OBJ_DIR = obj

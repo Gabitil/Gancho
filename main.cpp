@@ -698,14 +698,14 @@ void mouseClick(int button, int state, int x, int y) {
               currentState = STATE_GAME_3D;
               gameStartLevel_3D(activeLevel_3D);
               loadGameTextures_3D();
-              // Audio::stopMusic();
-              //  switch (activeLevel_3D)
-              //  {
-              //    case 1: Audio::playMusic("fase1_2D", -1); break;
-              //    case 2: Audio::playMusic("fase2_2D", -1); break;
-              //    case 3: Audio::playMusic("fase3_2D", -1); break;
-              //    default: break;
-              //  }
+              Audio::stopMusic();
+              switch (activeLevel_3D)
+              {
+                case 1: Audio::playMusic("fase1_3D", -1); break;
+                case 2: Audio::playMusic("fase2_3D", -1); break;
+                case 3: Audio::playMusic("fase3_3D", -1); break;
+                default: break;
+              }
               reshape(glutGet(GLUT_WINDOW_WIDTH), glutGet(GLUT_WINDOW_HEIGHT));
 
               glutTimerFunc(16, timer, 0);
