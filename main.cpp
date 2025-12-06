@@ -104,7 +104,7 @@ Button gameBackButton;  // Botão de "voltar" contido dentro do próprio jogo
 
 MenuOption selectedMenuOption = NONE;
 int maxLevelUnlocked_2D = 1;
-int maxLevelUnlocked_3D = 1;
+int maxLevelUnlocked_3D = 1;  // Começa com apenas o nível 1 desbloqueado
 
 int activeLevel_2D = 1;
 int activeLevel_3D = 1;

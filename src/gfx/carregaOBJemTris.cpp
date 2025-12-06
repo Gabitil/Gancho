@@ -71,6 +71,7 @@ void carregaOBJemTris(const std::string& caminho, std::vector<tri>& out) {
 
   // Se for um modelo global, tenta buscar em assets/images/
   // Se for um modelo de level, tenta buscar em assets/images/levelX/
+  // ATUALIZADO: Level3 usa models/level3/ para os MTLs
   std::string baseDir = "models/";
   if (objDir.find("global") != std::string::npos) {
     baseDir = "assets/images/";
@@ -79,7 +80,7 @@ void carregaOBJemTris(const std::string& caminho, std::vector<tri>& out) {
   } else if (objDir.find("level2") != std::string::npos) {
     baseDir = "assets/images/level2/";
   } else if (objDir.find("level3") != std::string::npos) {
-    baseDir = "assets/images/level3/";
+    baseDir = "models/level3/";  // Level 3 usa models/ ao invés de assets/images/
   }
 
   bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err,

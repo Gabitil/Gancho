@@ -46,5 +46,6 @@ void loadGameTextures_3D();
 void carregaOBJemTris(const std::string& caminho, std::vector<tri>& out);
 extern bool isGrappling_3D;
 extern bool isMouseFree_3D;
+extern int activeLevel_3D;
 
 #endif
