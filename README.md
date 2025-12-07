@@ -88,7 +88,6 @@ Em Windows, utilize um terminal do MinGW ou similar e execute `mingw32-make` com
 
 ## Instruções de Jogabilidade 2D
 
-
 **Navegação de menus**
 
 - Use o mouse para selecionar entre *Iniciar*, *Como Jogar* e *Sair*.
@@ -112,7 +111,7 @@ Em Windows, utilize um terminal do MinGW ou similar e execute `mingw32-make` com
 
 Assista à demonstração completa do jogo 2D em: https://youtu.be/35w8977BUvI
 
-Assista à demonstração completa do jogo 3D em: 
+Assista à demonstração completa do jogo 3D em: https://youtu.be/RmfJs7uvaY8
 
 ---
 
