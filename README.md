@@ -8,16 +8,17 @@
 
 ## Visão Geral
 
-Gancho é um jogo 2D desenvolvido com OpenGL e FreeGLUT que desafia o jogador a atravessar fases utilizando um gancho para se locomover por plataformas suspensas. Cada estágio combina elementos de física, zonas de vento e obstáculos que exigem planejamento dos disparos do gancho e gerenciamento dos recursos disponíveis.
+Gancho é um jogo 2D/3D desenvolvido com OpenGL e FreeGLUT que desafia o jogador a atravessar fases utilizando um gancho para se locomover por plataformas suspensas. Cada estágio combina elementos de física, zonas de vento e obstáculos que exigem planejamento dos disparos do gancho e gerenciamento dos recursos disponíveis.
 
 ### Principais funcionalidades
 
 - **Máquina de estados** que organiza o fluxo entre menu principal, instruções, seleção de fases e jogo.
-- **Três fases** com parâmetros de física próprios, incluindo gravidade, velocidade do jogador e número máximo de disparos do gancho.
+- **Seis fases**, três em 2D e três em 3D,com parâmetros de física próprios, incluindo gravidade, velocidade do jogador e número máximo de disparos do gancho.
 - **Mecânica de gancho** com projétil, corda e forças de tração que influenciam a movimentação.
-- **Obstáculos variados**, como plataformas, zonas de vento que alteram a trajetória, paredes destrutíveis e áreas com espinhos fatais.
+- **Obstáculos variados**, como plataformas, zonas de vento que alteram a trajetória, paredes destrutíveis, áreas com espinhos fatais e monstros.
 - **HUD informativo** com contador de disparos restantes, indicadores de velocidade e vetores de força para auxiliar o jogador.
-- **Listas de exibição (display lists)** para otimizar a renderização de elementos estáticos de cada fase.
+- **Listas de exibição (display lists)** para otimizar a renderização de elementos estáticos de cada fase na fase 2D.
+- **VBOs** para a criação de objetos 3D diretamente na VRAM, poupando assim tempo de processamento da cpu e da ram e fazendo o jogo rodar mais rapidamente.
 
 ## Requisitos de Sistema
 
@@ -31,6 +32,7 @@ Gancho é um jogo 2D desenvolvido com OpenGL e FreeGLUT que desafia o jogador a 
 sudo apt update
 sudo apt install build-essential freeglut3-dev libglew-dev mesa-common-dev mesa-utils
 sudo apt-get install libsoil-dev
+sudo apt install libsdl2-mixer-2.0-0 libsdl2-mixer-dev
 ```
 
 ## Compilação
@@ -65,25 +67,52 @@ ou diretamente:
 
 Em Windows, utilize um terminal do MinGW ou similar e execute `mingw32-make` com os mesmos alvos (`compilar`, `executar`, `limpar`).
 
-## Instruções de Jogabilidade
+## Instruções de Jogabilidade 2D
 
 1. **Navegação de menus**
+
    - Use o mouse para selecionar entre *Iniciar*, *Como Jogar* e *Sair*.
    - Na tela de instruções, clique em **Voltar** para retornar ao menu principal.
    - Na seleção de fases, escolha uma das fases liberadas para jogar ou clique em **Voltar**.
 2. **Controles dentro do jogo**
+
    - Mova o personagem no chão usando `A`/`D` ou as setas esquerda/direita.
    - Mire com o mouse e **clique e segure o botão esquerdo** para disparar o gancho.
    - Solte o botão do mouse para desprender o gancho quando estiver preso.
    - Gerencie o número limitado de disparos exibido no HUD.
 3. **Objetivo e obstáculos**
+
    - Alcance a porta no fim da fase antes de ficar sem disparos ou tocar em espinhos.
    - Aproveite as plataformas para ganhar altura e utilize as correntes de vento para ajustar trajetórias.
    - Quebre paredes específicas aplicando força suficiente com o gancho.
 
+## Instruções de Jogabilidade 2D
+
+
+**Navegação de menus**
+
+- Use o mouse para selecionar entre *Iniciar*, *Como Jogar* e *Sair*.
+- Na tela de instruções, clique em **Voltar** para retornar ao menu principal.
+- Na seleção de fases, escolha uma das fases liberadas para jogar ou clique em **Voltar**.
+
+**Controles dentro do jogo**
+
+- Mova o personagem no chão usando `W/A/S/D` ou as setas do teclado.
+- Mire com o mouse e **clique e segure o botão esquerdo** para disparar o gancho.
+- Aperte **Espaço** para desprender o gancho quando estiver preso.
+- Gerencie o número limitado de disparos exibido no HUD.
+
+**Objetivo e obstáculos**
+
+- Alcance a porta no fim da fase antes de ficar sem disparos ou tocar em espinhos.
+- Aproveite as plataformas para ganhar altura.
+- Quebre paredes específicas aplicando força suficiente com o gancho.
+
 ## Vídeo de Gameplay
 
-Assista à demonstração completa do jogo em: https://youtu.be/35w8977BUvI
+Assista à demonstração completa do jogo 2D em: https://youtu.be/35w8977BUvI
+
+Assista à demonstração completa do jogo 3D em: 
 
 ---
 
