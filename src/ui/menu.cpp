@@ -24,28 +24,36 @@ extern GLuint texButtonDisabled;
  */
 // Em menu.cpp
 
-void drawButton(const Button& btn) {
-  GLuint textureToUse = texButtonNormal;  // Textura padrão
+void drawButton(const Button &btn)
+{
+  GLuint textureToUse = texButtonNormal; // Textura padrão
 
-  if (!btn.enabled) {
-    textureToUse = texButtonDisabled;  // Usa textura de desabilitado
-  } else if (btn.hovered) {
-    textureToUse = texButtonHover;  // Usa textura de hover (mouse sobre)
+  if (!btn.enabled)
+  {
+    textureToUse = texButtonDisabled; // Usa textura de desabilitado
+  }
+  else if (btn.hovered)
+  {
+    textureToUse = texButtonHover; // Usa textura de hover (mouse sobre)
   }
 
   // 1. Desenha o retângulo do botão usando a textura
   drawTexturedRect(btn.x, btn.y, btn.w, btn.h, textureToUse, false, false);
 
   // 2. O código para desenhar o TEXTO por cima do botão permanece o mesmo
-  if (btn.enabled) {
-    glColor3f(1.0f, 1.0f, 1.0f);  // Texto branco (ativado)
-  } else {
-    glColor3f(0.8f, 0.8f, 0.8f);  // Texto cinza (desativado)
+  if (btn.enabled)
+  {
+    glColor3f(1.0f, 1.0f, 1.0f); // Texto branco (ativado)
+  }
+  else
+  {
+    glColor3f(0.8f, 0.8f, 0.8f); // Texto cinza (desativado)
   }
 
   // ... (resto da função para centralizar o texto, não precisa mudar)
   int textWidth = 0;
-  for (const char* caracter = btn.label; *caracter; ++caracter) {
+  for (const char *caracter = btn.label; *caracter; ++caracter)
+  {
     textWidth += glutBitmapWidth(GLUT_BITMAP_HELVETICA_18, *caracter);
   }
 
@@ -62,19 +70,46 @@ void drawButton(const Button& btn) {
  */
 // Em menu.cpp
 
-void renderMenu(Button buttons[], int count) {
-  glClear(GL_COLOR_BUFFER_BIT);  // Limpa a tela
+void renderMenu(Button buttons[], int count)
+{
+  glClear(GL_COLOR_BUFFER_BIT); // Limpa a tela
 
   // 1. Desenha o fundo texturizado
   float winW = (float)glutGet(GLUT_WINDOW_WIDTH);
   float winH = (float)glutGet(GLUT_WINDOW_HEIGHT);
   drawTexturedRect(0, 0, winW, winH,
-                   texMenuBackground, false, false);  // Usa o ID da textura de fundo
+                   texMenuBackground, false, false); // Usa o ID da textura de fundo
 
   // 2. Desenha os botões (agora texturizados)
-  for (int i = 0; i < count; i++) {
+  for (int i = 0; i < count; i++)
+  {
     drawButton(buttons[i]);
   }
+
+  const char *text = "Desenvolvedores: Gabriel Augusto, Geovane da Silva e Otavio Andrade. Agradecimentos: Professor Andre Rodrigues";
+  void *font = GLUT_BITMAP_HELVETICA_10;
+  int padding = 10;
+
+  int textWidth = getTextWidth(text, font);
+  int textHeight = 17;
+
+  float boxW = (float)(textWidth + padding * 2);
+  float boxH = (float)(textHeight + padding * 2);
+
+  float x = winW - boxW - 20.0f;
+  float y = winH - boxH - 20.0f;
+
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+  glColor4f(0.0f, 0.0f, 0.0f, 0.4f);
+  glRectf(x, y, x + boxW, y + boxH);
+
+  glDisable(GL_BLEND);
+
+  glColor3f(1.0f, 1.0f, 1.0f);
+
+  drawText(x + padding, y + padding + 4, text, font);
 
   glutSwapBuffers();
 }
@@ -84,11 +119,14 @@ void renderMenu(Button buttons[], int count) {
  * de colisão de quadrados (amplamente usada em atividades anteriores e nesse
  * trabalho). Ao escolher, será retornada a opção de menu que foi escolhida
  */
-MenuOption handleMenuInput(int x, int y, Button buttons[], int count) {
-  for (int i = 0; i < count; i++) {
+MenuOption handleMenuInput(int x, int y, Button buttons[], int count)
+{
+  for (int i = 0; i < count; i++)
+  {
     if (buttons[i].enabled && x >= buttons[i].x &&
         x <= buttons[i].x + buttons[i].w && y >= buttons[i].y &&
-        y <= buttons[i].y + buttons[i].h) {
+        y <= buttons[i].y + buttons[i].h)
+    {
       return (MenuOption)(i + 1);
     }
   }

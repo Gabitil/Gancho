@@ -456,7 +456,7 @@ void gameReshape(int width, int height) { glViewport(0, 0, width, height); }
  */
 GameAction gameUpdate() {
   if (isGameVictory) {
-    if( gameVictoryTimer == 180 ) {
+    if( gameVictoryTimer == 90 ) {
       Audio::stopMusic();
       Audio::playSound("win_level", 0);
     }
@@ -469,7 +469,7 @@ GameAction gameUpdate() {
   }
 
   if (isGameOver) {
-    if( gameOverTimer == 180 ) {
+    if( gameOverTimer == 90 ) {
       Audio::stopMusic();
       Audio::playSound("game_over", 0);
     }
@@ -650,7 +650,7 @@ GameAction gameUpdate() {
   if (player.x < -player.w || player.x > WORLD_WIDTH ||
       player.y < DEATH_BOUNDARY_Y) {
     isGameOver = true;
-    gameOverTimer = 180;  // Aproximadamente 3 segundos a 60 FPS
+    gameOverTimer = 90;  // Aproximadamente 3 segundos a 60 FPS
     return GAME_ACTION_CONTINUE;
   }
 
@@ -664,7 +664,7 @@ GameAction gameUpdate() {
                                 spikeZone->x, spikeZone->y, spikeZone->w,
                                 spikeZone->h)) {
       isGameOver = true;
-      gameOverTimer = 180;  // Aproximadamente 3 segundos a 60 FPS
+      gameOverTimer = 90;  // Aproximadamente 3 segundos a 60 FPS
       return GAME_ACTION_CONTINUE;
     }
   }
@@ -679,7 +679,7 @@ GameAction gameUpdate() {
                                 riverZone->h)) {
       Audio::playSound("splash_water");
       isGameOver = true;
-      gameOverTimer = 180;
+      gameOverTimer = 90;
       return GAME_ACTION_CONTINUE;
     }
   }
@@ -869,7 +869,7 @@ GameAction gameUpdate() {
                               door.y, door.w, door.h)) {                            
     Audio::playSound("door_open", 0);
     isGameVictory = true;
-    gameVictoryTimer = 180;
+    gameVictoryTimer = 90;
     return GAME_ACTION_CONTINUE;
   }
 
